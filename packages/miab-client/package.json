@@ -1,0 +1,14 @@
+{
+    "name": "@miab-inwx/miab-client",
+    "version": "1.0.0",
+    "description": "A client for the MIAB API",
+    "main": "index.ts",
+    "type": "module",
+    "scripts": {
+        "generate": "npx @hey-api/openapi-ts --client @hey-api/client-fetch --input https://raw.githubusercontent.com/mail-in-a-box/mailinabox/refs/heads/main/api/mailinabox.yml --output _generated",
+        "help": "npx @hey-api/openapi-ts --help"
+    },
+    "dependencies": {
+        "@hey-api/client-fetch": "^0.13.1"
+    }
+}
