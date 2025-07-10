@@ -1,0 +1,13 @@
+{
+  "name": "@miab-inwx/root",
+  "version": "1.0.0",
+  "description": "A root package for the MIAB and INWX API",
+  "packageManager": "yarn@4.9.2",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "dependencies": {
+    "typescript": "^5.8.3"
+  }
+}
