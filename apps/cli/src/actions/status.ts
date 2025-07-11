@@ -1,10 +1,10 @@
 import { MiabClient, type SystemStatusResponse } from "@miab-inwx/miab-client";
-import type { CommandResult, MiabConnectionOptions } from "../types/index.ts";
+import type { CommandResult, MiabConnectionOptions, StatusData } from "../types/index.ts";
 
 /**
  * Get the status of the Mail-in-a-Box server
  */
-export async function getMiabStatus(options: MiabConnectionOptions): Promise<CommandResult> {
+export async function getMiabStatus(options: MiabConnectionOptions): Promise<CommandResult<StatusData>> {
 	try {
 		const { apiUrl, email, password, verbose } = options;
 

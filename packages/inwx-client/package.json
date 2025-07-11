@@ -6,5 +6,8 @@
 	"type": "module",
 	"dependencies": {
 		"domrobot-client": "^3.3.0"
+	},
+	"scripts": {
+		"check:types": "tsc"
 	}
 }

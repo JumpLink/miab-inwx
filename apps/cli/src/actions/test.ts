@@ -1,10 +1,10 @@
 import { MiabClient } from "@miab-inwx/miab-client";
-import type { CommandResult, MiabConnectionOptions } from "../types/index.ts";
+import type { CommandResult, MiabConnectionOptions, TestData } from "../types/index.ts";
 
 /**
  * Test the connection to the MIAB server
  */
-export async function testMiabConnection(options: MiabConnectionOptions): Promise<CommandResult> {
+export async function testMiabConnection(options: MiabConnectionOptions): Promise<CommandResult<TestData>> {
 	try {
 		const { apiUrl, email, password, verbose } = options;
 

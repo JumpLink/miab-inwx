@@ -6,7 +6,8 @@
 	"type": "module",
 	"scripts": {
 		"generate": "npx @hey-api/openapi-ts --client @hey-api/client-fetch --input https://raw.githubusercontent.com/mail-in-a-box/mailinabox/refs/heads/main/api/mailinabox.yml --output _generated",
-		"help": "npx @hey-api/openapi-ts --help"
+		"help": "npx @hey-api/openapi-ts --help",
+		"check:types": "tsc"
 	},
 	"dependencies": {
 		"@hey-api/client-fetch": "^0.13.1"

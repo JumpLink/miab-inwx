@@ -4,8 +4,10 @@
   "description": "A root package for the MIAB and INWX API",
   "type": "module",
   "scripts": {
+    "check": "yarn format && yarn check:types",
     "format": "biome check . --write --unsafe",
-    "lint": "biome lint --write ."
+    "lint": "biome lint --write .",
+    "check:types": "yarn workspaces foreach -v --all --parallel run check:types"
   },
   "packageManager": "yarn@4.9.2",
   "workspaces": [
