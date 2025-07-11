@@ -1,13 +1,17 @@
 import type { Argv } from "yargs";
 import { getInwxStatus } from "../../actions/inwx/status.ts";
-import type { InwxConnectionOptions } from "../../types/commands.ts";
 
-interface StatusOptions extends InwxConnectionOptions {
-	// Additional status-specific options can be added here
+interface StatusOptions {
+	username: string;
+	password: string;
+	sharedSecret?: string;
+	"shared-secret"?: string;
+	environment?: "ote" | "live";
+	verbose?: boolean;
 }
 
 export function statusCommand(yargs: Argv): void {
-	yargs.command<StatusOptions>({
+	yargs.command({
 		command: "status",
 		describe: "Check the status of the INWX account",
 		builder: (yargs: Argv) => {
@@ -45,13 +49,14 @@ export function statusCommand(yargs: Argv): void {
 				.example("$0 inwx status -u username -p password -e live", "Check INWX account status (Live)")
 				.example("$0 inwx status -u username -p password -s secret", "Check INWX account status with 2FA");
 		},
-		handler: async (args: StatusOptions) => {
+		handler: async (args: any) => {
+			const statusOptions = args as StatusOptions;
 			const result = await getInwxStatus({
-				username: args.username,
-				password: args.password,
-				sharedSecret: args.sharedSecret || args["shared-secret"],
-				environment: args.environment,
-				verbose: args.verbose,
+				username: statusOptions.username,
+				password: statusOptions.password,
+				sharedSecret: statusOptions.sharedSecret || statusOptions["shared-secret"],
+				environment: statusOptions.environment,
+				verbose: statusOptions.verbose,
 			});
 
 			if (result.success) {
@@ -88,7 +93,7 @@ export function statusCommand(yargs: Argv): void {
 					}
 				}
 
-				if (args.verbose && result.data) {
+				if (statusOptions.verbose && result.data) {
 					console.log("\nConnection Details:");
 					console.log(`  Username: ${result.data.username}`);
 					console.log(`  Environment: ${result.data.environment.toUpperCase()}`);
@@ -102,5 +107,5 @@ export function statusCommand(yargs: Argv): void {
 				process.exit(1);
 			}
 		},
-	});
+	} as any);
 }

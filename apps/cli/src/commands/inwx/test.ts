@@ -1,13 +1,17 @@
 import type { Argv } from "yargs";
 import { testInwxConnection } from "../../actions/inwx/test.ts";
-import type { InwxConnectionOptions } from "../../types/commands.ts";
 
-interface TestOptions extends InwxConnectionOptions {
-	// Additional test-specific options can be added here
+interface TestOptions {
+	username: string;
+	password: string;
+	sharedSecret?: string;
+	"shared-secret"?: string;
+	environment?: "ote" | "live";
+	verbose?: boolean;
 }
 
 export function testCommand(yargs: Argv): void {
-	yargs.command<TestOptions>({
+	yargs.command({
 		command: "test",
 		describe: "Test the connection to the INWX API",
 		builder: (yargs: Argv) => {
@@ -45,18 +49,19 @@ export function testCommand(yargs: Argv): void {
 				.example("$0 inwx test -u username -p password -e live", "Test INWX connection (Live)")
 				.example("$0 inwx test -u username -p password -s secret", "Test INWX connection with 2FA");
 		},
-		handler: async (args: TestOptions) => {
+		handler: async (args: any) => {
+			const testOptions = args as TestOptions;
 			const result = await testInwxConnection({
-				username: args.username,
-				password: args.password,
-				sharedSecret: args.sharedSecret || args["shared-secret"],
-				environment: args.environment,
-				verbose: args.verbose,
+				username: testOptions.username,
+				password: testOptions.password,
+				sharedSecret: testOptions.sharedSecret || testOptions["shared-secret"],
+				environment: testOptions.environment,
+				verbose: testOptions.verbose,
 			});
 
 			if (result.success) {
 				console.log(`✅ ${result.message}`);
-				if (args.verbose && result.data) {
+				if (testOptions.verbose && result.data) {
 					console.log("Connection Details:");
 					console.log(`  Username: ${result.data.username}`);
 					console.log(`  Environment: ${result.data.environment.toUpperCase()}`);
@@ -71,5 +76,5 @@ export function testCommand(yargs: Argv): void {
 				process.exit(1);
 			}
 		},
-	});
+	} as any);
 }
