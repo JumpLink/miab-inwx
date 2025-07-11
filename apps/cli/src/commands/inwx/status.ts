@@ -49,7 +49,7 @@ export function statusCommand(yargs: Argv): void {
 				.example("$0 inwx status -u username -p password -e live", "Check INWX account status (Live)")
 				.example("$0 inwx status -u username -p password -s secret", "Check INWX account status with 2FA");
 		},
-		handler: async (args: any) => {
+		handler: async (args: unknown) => {
 			const statusOptions = args as StatusOptions;
 			const result = await getInwxStatus({
 				username: statusOptions.username,
@@ -107,5 +107,5 @@ export function statusCommand(yargs: Argv): void {
 				process.exit(1);
 			}
 		},
-	} as any);
+	});
 }

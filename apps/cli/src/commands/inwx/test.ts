@@ -49,7 +49,7 @@ export function testCommand(yargs: Argv): void {
 				.example("$0 inwx test -u username -p password -e live", "Test INWX connection (Live)")
 				.example("$0 inwx test -u username -p password -s secret", "Test INWX connection with 2FA");
 		},
-		handler: async (args: any) => {
+		handler: async (args: unknown) => {
 			const testOptions = args as TestOptions;
 			const result = await testInwxConnection({
 				username: testOptions.username,
@@ -76,5 +76,5 @@ export function testCommand(yargs: Argv): void {
 				process.exit(1);
 			}
 		},
-	} as any);
+	});
 }
