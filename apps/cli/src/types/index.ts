@@ -21,7 +21,7 @@ export interface MiabConnectionOptions extends BaseCommandOptions {
 export interface CommandResult {
 	success: boolean;
 	message?: string;
-	data?: any;
+	data?: unknown;
 	error?: string;
 }
 

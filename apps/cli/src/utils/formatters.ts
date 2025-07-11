@@ -73,9 +73,21 @@ export function getStatusIcon(hasErrors: boolean, hasWarnings: boolean): string 
 }
 
 /**
+ * Connection details for display formatting
+ */
+export interface ConnectionDetails {
+	baseUrl?: string;
+	url?: string;
+	version?: string;
+	rebootRequired?: boolean;
+	authenticated?: boolean;
+	timestamp?: string;
+}
+
+/**
  * Format connection details for display
  */
-export function formatConnectionDetails(data: any): string {
+export function formatConnectionDetails(data: ConnectionDetails): string {
 	const lines: string[] = [];
 
 	lines.push("\n🔗 Connection Details:");
