@@ -15,6 +15,7 @@
 		"@miab-inwx/inwx-client": "workspace:*",
 		"@miab-inwx/miab-client": "workspace:*",
 		"domrobot-client": "^3.3.0",
+		"dotenv": "^17.2.0",
 		"yargs": "^18.0.0"
 	},
 	"devDependencies": {

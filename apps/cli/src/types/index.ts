@@ -6,6 +6,8 @@ export * from "./inwx-test.ts";
 // Export MIAB-specific types
 export * from "./miab-status.ts";
 export * from "./miab-test.ts";
+// Export Migration-specific types
+export * from "./migrate-dns.ts";
 
 // Common CLI types
 export interface BaseCommandOptions {
