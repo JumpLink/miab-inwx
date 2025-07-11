@@ -1,0 +1,80 @@
+---
+description: 🤖 CLI Command Creation Prompt
+alwaysApply: false
+---
+# CLI Command Structure Rules for apps/cli
+
+## Folder Structure
+```
+apps/cli/src/
+├── commands/{service}.ts          # Main command (registers subcommands)
+├── commands/{service}/{action}.ts # Subcommands (CLI interface only)
+├── actions/{service}/{action}.ts  # Business logic (pure functions)
+├── types/{service}-{action}.ts    # Service-specific types
+├── types/commands.ts              # Generic command types
+├── types/index.ts                 # Export all types
+└── utils/                         # Shared utilities
+```
+
+## Naming Conventions
+- **Types**: `{Service}{Action}Data`, `{Service}ConnectionOptions`
+- **Files**: `{service}-{action}.ts`, `{service}/{action}.ts`
+- **Functions**: `{action}{Service}Connection`, `get{Service}{Action}`
+
+## Type Safety Rules
+- ✅ NEVER use `any` - use `unknown` for yargs handlers
+- ✅ Create local interfaces for CLI options in command files
+- ✅ Use type assertions: `args as LocalInterface`
+- ✅ Define `CommandResult<T>` for consistent returns
+- ✅ Export all types from `types/index.ts`
+
+## Implementation Pattern
+1. **Types** (`types/{service}-{action}.ts`):
+   ```typescript
+   export interface {Service}ConnectionOptions { ... }
+   export interface {Service}{Action}Data { ... }
+   ```
+
+2. **Actions** (`actions/{service}/{action}.ts`):
+   ```typescript
+   export async function {action}{Service}Connection(options: {Service}ConnectionOptions): Promise<CommandResult<{Service}{Action}Data>> {
+     // Pure business logic, no CLI concerns
+   }
+   ```
+
+3. **Commands** (`commands/{service}/{action}.ts`):
+   ```typescript
+   interface {Action}Options { ... } // Local CLI options
+   export function {action}Command(yargs: Argv): void {
+     yargs.command({
+       handler: async (args: unknown) => {
+         const options = args as {Action}Options;
+         const result = await {action}{Service}Connection(options);
+         // Handle result output
+       }
+     });
+   }
+   ```
+
+4. **Main Command** (`commands/{service}.ts`):
+   ```typescript
+   export function {service}Command(yargs: Argv): void {
+     yargs.command({
+       builder: (yargs: Argv) => {
+         {action1}Command(yargs);
+         {action2}Command(yargs);
+         return yargs.demandCommand(1);
+       }
+     });
+   }
+   ```
+
+## Key Principles
+- Separate CLI interface from business logic
+- Use TypeScript strictly (no any types)
+- Follow consistent naming patterns
+- Maintain type safety throughout
+- Export types centrally
+
+## Finalizing
+- Commit the changes following the [git-commit-best-practices.mdc](mdc:.cursor/rules/git-commit-best-practices.mdc) rules

@@ -5,13 +5,13 @@ alwaysApply: false
 ---
 You are a meticulous developer who commits code frequently with clear, atomic commits following conventional commit standards.
 
-## Core Philosophy for AI Development
+## Core Philosophy
 - **Regular Commits for Large Tasks**: Break down complex changes into meaningful, logical commits
 - **Working Code Only**: Never commit broken or non-functional code - always validate before committing
 - **Continuous Validation**: Use yarn commands regularly to ensure code quality and functionality
 
 ## Validation Strategy
-Before every commit, validate your code using the commands from [yarn-workspace.mdc](mdc:.cursor/rules/yarn-workspace.mdc):
+Before every commit, validate your code using `yarn check`.
 
 **For regular commits (recommended):**
 - `yarn check` - Full type check and linting across all packages
@@ -20,7 +20,7 @@ Before every commit, validate your code using the commands from [yarn-workspace.
 
 Always fix all errors and warnings before proceeding with the commit
 
-## Commit Practices for AI Agents
+## Commit Practices
 - **Atomic Changes**: Each commit represents one logical change or feature addition
 - **Conventional Format**: Use `<type>[scope]: <description>` format (feat, fix, docs, refactor, test, chore, etc.)
 - **Regular Progress Commits**: For larger tasks, commit at logical milestones, not just at completion
