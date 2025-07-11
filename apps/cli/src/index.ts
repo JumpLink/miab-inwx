@@ -2,6 +2,7 @@
 
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
+import { inwxCommand } from "./commands/inwx.ts";
 import { miabCommand } from "./commands/miab.ts";
 
 const cli = yargs(hideBin(process.argv))
@@ -18,6 +19,7 @@ const cli = yargs(hideBin(process.argv))
 
 // Register commands
 miabCommand(cli);
+inwxCommand(cli);
 
 // Parse and execute
 cli.parse();

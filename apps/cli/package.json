@@ -12,11 +12,14 @@
 		"check:types": "tsc"
 	},
 	"dependencies": {
+		"@miab-inwx/inwx-client": "workspace:*",
 		"@miab-inwx/miab-client": "workspace:*",
+		"domrobot-client": "^3.3.0",
 		"yargs": "^18.0.0"
 	},
 	"devDependencies": {
 		"@types/node": "^24.0.12",
+		"@types/yargs": "^17.0.33",
 		"typescript": "^5.0.0"
 	}
 }
