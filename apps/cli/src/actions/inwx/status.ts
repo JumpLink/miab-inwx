@@ -43,10 +43,14 @@ export async function getInwxStatus(options: InwxConnectionOptions): Promise<Com
 
 			if (accountInfoResponse.code === 1000) {
 				let statusMessage = "INWX account is active";
-				if (accountInfoResponse.resData?.customer?.type === "blocked") {
-					statusMessage = "INWX account is blocked";
-				} else if (accountInfoResponse.resData?.balance && accountInfoResponse.resData.balance < 0) {
-					statusMessage = "INWX account has negative balance";
+
+				// Check account status based on verification level and other factors
+				if (accountInfoResponse.resData?.verification === 0) {
+					statusMessage = "INWX account is not verified";
+				} else if (accountInfoResponse.resData?.disablePremium === 1) {
+					statusMessage = "INWX account has restricted access";
+				} else if (accountInfoResponse.resData?.paymentType === "Prepaid") {
+					statusMessage = "INWX account is active (Prepaid)";
 				}
 
 				return {

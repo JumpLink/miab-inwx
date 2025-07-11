@@ -61,15 +61,30 @@ export function statusCommand(yargs: Argv): void {
 					const accountData = result.data.accountInfo.resData;
 					console.log("\nAccount Information:");
 
-					if (accountData.customer) {
-						console.log(`  Customer ID: ${accountData.customer.id || "N/A"}`);
-						console.log(`  Customer Name: ${accountData.customer.name || "N/A"}`);
-						console.log(`  Customer Email: ${accountData.customer.email || "N/A"}`);
-						console.log(`  Account Type: ${accountData.customer.type || "N/A"}`);
+					console.log(`  Account ID: ${accountData.accountId || "N/A"}`);
+					console.log(`  Customer ID: ${accountData.customerId || "N/A"}`);
+					console.log(`  Customer No: ${accountData.customerNo || "N/A"}`);
+					console.log(`  Username: ${accountData.username || "N/A"}`);
+					console.log(
+						`  Name: ${accountData.title || ""} ${accountData.firstname || ""} ${accountData.lastname || ""}`,
+					);
+					console.log(`  Organization: ${accountData.org || "N/A"}`);
+					console.log(`  Email: ${accountData.email || "N/A"}`);
+					console.log(`  Country: ${accountData.cc || "N/A"}`);
+					console.log(`  Payment Type: ${accountData.paymentType || "N/A"}`);
+					console.log(`  Currency: ${accountData.currency || "N/A"}`);
+					console.log(`  Verification Level: ${accountData.verification || "N/A"}`);
+					console.log(`  2FA Enabled: ${accountData.tfa === "0" ? "No" : "Yes"}`);
+					console.log(`  Is Reseller: ${accountData.isReseller || "N/A"}`);
+					console.log(`  Renewal Mode: ${accountData.renewalMode || "N/A"}`);
+					console.log(`  Login Count: ${accountData.loginCount || "N/A"}`);
+
+					if (accountData.lastLogin?.scalar) {
+						console.log(`  Last Login: ${accountData.lastLogin.scalar}`);
 					}
 
-					if (accountData.balance !== undefined) {
-						console.log(`  Balance: ${accountData.balance} ${accountData.currency || "EUR"}`);
+					if (accountData.crDate?.scalar) {
+						console.log(`  Account Created: ${accountData.crDate.scalar}`);
 					}
 				}
 
