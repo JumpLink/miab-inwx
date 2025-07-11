@@ -1,5 +1,6 @@
 import { MiabClient, type SystemStatusResponse } from "@miab-inwx/miab-client";
-import type { CommandResult, MiabConnectionOptions, StatusData } from "../../types/index.ts";
+import type { CommandResult, MiabConnectionOptions } from "../../types/index.ts";
+import type { StatusData } from "../../types/miab-status.ts";
 
 /**
  * Get the status of the Mail-in-a-Box server

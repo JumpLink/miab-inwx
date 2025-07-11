@@ -1,6 +1,7 @@
 import { ApiClient, Language } from "domrobot-client";
-import type { InwxConnectionOptions, InwxStatusData } from "../../types/commands.ts";
 import type { CommandResult } from "../../types/index.ts";
+import type { InwxStatusData } from "../../types/inwx-status.ts";
+import type { InwxConnectionOptions } from "../../types/inwx-test.ts";
 
 /**
  * Get the status of the INWX account

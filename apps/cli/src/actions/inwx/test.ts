@@ -1,6 +1,6 @@
 import { ApiClient, Language } from "domrobot-client";
-import type { InwxConnectionOptions, InwxTestData } from "../../types/commands.ts";
 import type { CommandResult } from "../../types/index.ts";
+import type { InwxConnectionOptions, InwxTestData } from "../../types/inwx-test.ts";
 
 /**
  * Test the connection to the INWX API
