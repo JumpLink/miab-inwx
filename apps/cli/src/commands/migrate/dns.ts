@@ -80,7 +80,7 @@ export function dnsCommand(yargs: Argv): void {
 					if (result.data) {
 						const { migration } = result.data;
 
-						console.log("📊 Final Migration Summary:");
+						console.log(`📊 Final Migration Summary:`);
 						console.log(`   Total Zones: ${migration.totalZones}`);
 						console.log(`   Processed Zones: ${migration.processedZones}`);
 						console.log(`   Successful Zones: ${migration.successfulZones}`);
@@ -96,6 +96,19 @@ export function dnsCommand(yargs: Argv): void {
 
 						const successRate = totalRecords > 0 ? Math.round((successfulRecords / totalRecords) * 100) : 0;
 						console.log(`   Overall Success Rate: ${successRate}%`);
+
+						// Show warnings summary
+						const totalWarnings = migration.results.reduce((sum, result) => sum + result.warnings.length, 0);
+						if (totalWarnings > 0) {
+							console.log(`\n⚠️  Warnings: ${totalWarnings}`);
+							const domainWarnings = migration.results.filter((result) =>
+								result.warnings.some((warning) => warning.includes("not registered")),
+							);
+							if (domainWarnings.length > 0) {
+								console.log(`   ${domainWarnings.length} domains are not registered in your INWX account`);
+								console.log(`   💡 Only domains registered in your INWX account can have DNS zones created`);
+							}
+						}
 
 						if (migration.dryRun) {
 							console.log("\n💡 This was a dry run. Remove --dry-run to actually migrate the records.");

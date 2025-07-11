@@ -318,7 +318,28 @@ async function migrateZone(
 			if (verbose) {
 				console.log(`${zoneProgress || ""}   [DRY RUN] Would check if DNS zone ${zone.domain} exists`);
 			}
-			// In dry run mode, assume zone doesn't exist to show the creation step
+			// In dry run mode, also check if domain is registered to show realistic warnings
+			const domainListResponse = await inwxApiClient.callApi("domain.list", {});
+			let domainRegistered = false;
+
+			if (domainListResponse.code === 1000 && domainListResponse.resData && domainListResponse.resData.domains) {
+				const registeredDomains = domainListResponse.resData.domains;
+				domainRegistered = registeredDomains.some(
+					(domain: { domain: string; [key: string]: unknown }) => domain.domain === zone.domain,
+				);
+			}
+
+			if (!domainRegistered) {
+				result.warnings.push(`Domain ${zone.domain} is not registered in your INWX account - cannot create DNS zone`);
+				if (verbose) {
+					console.log(
+						`${zoneProgress || ""}   ⚠️  [DRY RUN] Domain ${zone.domain} is not registered in your INWX account`,
+					);
+				}
+				return result;
+			}
+
+			// Assume zone doesn't exist to show the creation step
 			zoneExists = false;
 		} else {
 			const zoneInfoResponse = await inwxApiClient.callApi("nameserver.info", {
@@ -331,10 +352,35 @@ async function migrateZone(
 					console.log(`${zoneProgress || ""}   ✅ DNS zone ${zone.domain} already exists`);
 				}
 			} else if (zoneInfoResponse.code === 2303) {
-				// Zone doesn't exist - this is expected for new zones
+				// Zone doesn't exist - check if domain is registered
 				zoneExists = false;
 				if (verbose) {
-					console.log(`${zoneProgress || ""}   ℹ️  DNS zone ${zone.domain} does not exist, will create it`);
+					console.log(
+						`${zoneProgress || ""}   ℹ️  DNS zone ${zone.domain} does not exist, checking if domain is registered`,
+					);
+				}
+
+				// Check if domain is registered in the account
+				const domainListResponse = await inwxApiClient.callApi("domain.list", {});
+				let domainRegistered = false;
+
+				if (domainListResponse.code === 1000 && domainListResponse.resData && domainListResponse.resData.domains) {
+					const registeredDomains = domainListResponse.resData.domains;
+					domainRegistered = registeredDomains.some(
+						(domain: { domain: string; [key: string]: unknown }) => domain.domain === zone.domain,
+					);
+				}
+
+				if (!domainRegistered) {
+					result.warnings.push(`Domain ${zone.domain} is not registered in your INWX account - cannot create DNS zone`);
+					if (verbose) {
+						console.log(`${zoneProgress || ""}   ⚠️  Domain ${zone.domain} is not registered in your INWX account`);
+					}
+					return result;
+				}
+
+				if (verbose) {
+					console.log(`${zoneProgress || ""}   ✅ Domain ${zone.domain} is registered, can create DNS zone`);
 				}
 			} else {
 				// Unexpected error
@@ -424,19 +470,81 @@ async function migrateZone(
 				result.successfulRecords++;
 			} else {
 				// Create DNS record in INWX
-				const createResponse = await inwxApiClient.callApi("nameserver.createRecord", {
+				// Special handling for MX records which need priority and content separated
+				const recordParams: {
+					domain: string;
+					type: string;
+					name: string;
+					content?: string;
+					prio?: number;
+					[key: string]: unknown;
+				} = {
 					domain: zone.domain,
 					type: record.rtype,
 					name: record.qname,
-					content: record.value,
-				});
+				};
+
+				if (record.rtype === "MX") {
+					// MX records from MIAB come as "10 mail.example.com" - we need to split priority and content
+					const mxParts = record.value.trim().split(/\s+/);
+					if (mxParts.length >= 2) {
+						const priority = parseInt(mxParts[0], 10);
+						const content = mxParts.slice(1).join(" ");
+
+						recordParams.prio = priority;
+						recordParams.content = content;
+					} else {
+						// Fallback - assume priority 10 if parsing fails
+						recordParams.prio = 10;
+						recordParams.content = record.value;
+					}
+				} else if (record.rtype === "SSHFP") {
+					// SSHFP records from MIAB come as "3 2 ( HASH )" - we need to remove parentheses
+					const cleanContent = record.value.replace(/[()]/g, "").replace(/\s+/g, " ").trim();
+					recordParams.content = cleanContent;
+				} else {
+					// For all other record types, use content as-is
+					recordParams.content = record.value;
+				}
+
+				const createResponse = await inwxApiClient.callApi("nameserver.createRecord", recordParams);
 
 				if (createResponse.code === 1000) {
 					result.successfulRecords++;
 					if (verbose) {
+						const displayValue = record.rtype === "MX" ? `${recordParams.prio} ${recordParams.content}` : record.value;
 						console.log(
-							`${zoneProgress || ""}   ✅ Created ${record.rtype} record: ${record.qname} -> ${record.value}`,
+							`${zoneProgress || ""}   ✅ Created ${record.rtype} record: ${record.qname} -> ${displayValue}`,
 						);
+					}
+				} else if (createResponse.code === 2302) {
+					// Record already exists - treat as successful (not an error)
+					result.successfulRecords++;
+					if (verbose) {
+						const displayValue = record.rtype === "MX" ? `${recordParams.prio} ${recordParams.content}` : record.value;
+						console.log(
+							`${zoneProgress || ""}   ℹ️  ${record.rtype} record already exists: ${record.qname} -> ${displayValue}`,
+						);
+					}
+				} else if (createResponse.code === 2308) {
+					// Data management policy violation - often for null MX records
+					if (record.rtype === "MX" && recordParams.prio === 0 && recordParams.content === ".") {
+						// Null MX record - treat as warning, not error
+						result.successfulRecords++;
+						result.warnings.push(`Null MX record not allowed by INWX policy: ${record.qname}`);
+						if (verbose) {
+							console.log(
+								`${zoneProgress || ""}   ⚠️  Null MX record not allowed by INWX policy: ${record.qname} -> ${recordParams.prio} ${recordParams.content}`,
+							);
+						}
+					} else {
+						// Other policy violations - treat as error
+						result.failedRecords++;
+						const errorMsg = `Policy violation for ${record.rtype} record ${record.qname}: ${createResponse.msg}`;
+						result.errors.push(errorMsg);
+						if (verbose) {
+							console.error(`${zoneProgress || ""}   ❌ ${errorMsg}`);
+						}
 					}
 				} else {
 					result.failedRecords++;

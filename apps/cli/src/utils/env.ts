@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import dotenv from "dotenv";
+import { config } from "@dotenvx/dotenvx";
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -46,7 +46,7 @@ export function loadEnvConfig(): EnvConfig {
 
 	if (envPath) {
 		// Load the .env file if found
-		dotenv.config({ path: envPath, override: true, quiet: true });
+		config({ path: envPath, override: true, quiet: true });
 	}
 
 	return {
