@@ -17,14 +17,8 @@ export function miabCommand(yargs: Argv): void {
 			return yargs
 				.demandCommand(1, "You need to specify a subcommand")
 				.help()
-				.example(
-					"$0 miab status -u https://box.example.com -e admin@example.com -p password",
-					"Check MIAB server status",
-				)
-				.example(
-					"$0 miab test -u https://box.example.com -e admin@example.com -p password",
-					"Test MIAB server connection",
-				);
+				.example("$0 miab status", "Check MIAB server status")
+				.example("$0 miab test", "Test MIAB server connection");
 		},
 		handler: () => {
 			// This handler will not be called if a subcommand is provided

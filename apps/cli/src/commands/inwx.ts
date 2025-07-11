@@ -17,8 +17,8 @@ export function inwxCommand(yargs: Argv): void {
 			return yargs
 				.demandCommand(1, "You need to specify a subcommand")
 				.help()
-				.example("$0 inwx test -u username -p password", "Test INWX connection")
-				.example("$0 inwx status -u username -p password", "Check INWX account status");
+				.example("$0 inwx test", "Test INWX connection")
+				.example("$0 inwx status", "Check INWX account status");
 		},
 		handler: () => {
 			// This handler will not be called if a subcommand is provided
