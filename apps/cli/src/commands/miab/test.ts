@@ -1,6 +1,6 @@
 import type { Argv } from "yargs";
-import { testMiabConnection } from "../actions/test.ts";
-import type { MiabConnectionOptions } from "../types/index.ts";
+import { testMiabConnection } from "../../actions/miab/test.ts";
+import type { MiabConnectionOptions } from "../../types/index.ts";
 
 interface TestOptions extends MiabConnectionOptions {
 	// Additional test-specific options can be added here
@@ -35,7 +35,10 @@ export function testCommand(yargs: Argv): void {
 					description: "Enable verbose output",
 					default: false,
 				})
-				.example("$0 test -u https://box.example.com -e admin@example.com -p password", "Test MIAB server connection");
+				.example(
+					"$0 miab test -u https://box.example.com -e admin@example.com -p password",
+					"Test MIAB server connection",
+				);
 		},
 		handler: async (args: TestOptions) => {
 			const result = await testMiabConnection({

@@ -1,7 +1,7 @@
 import type { Argv } from "yargs";
-import { getMiabStatus } from "../actions/status.ts";
-import type { MiabConnectionOptions } from "../types/index.ts";
-import { formatConnectionDetails, formatSystemStatus, getStatusIcon } from "../utils/formatters.ts";
+import { getMiabStatus } from "../../actions/miab/status.ts";
+import type { MiabConnectionOptions } from "../../types/index.ts";
+import { formatConnectionDetails, formatSystemStatus, getStatusIcon } from "../../utils/formatters.ts";
 
 interface StatusOptions extends MiabConnectionOptions {
 	// Additional status-specific options can be added here
@@ -36,7 +36,10 @@ export function statusCommand(yargs: Argv): void {
 					description: "Enable verbose output",
 					default: false,
 				})
-				.example("$0 status -u https://box.example.com -e admin@example.com -p password", "Check MIAB server status");
+				.example(
+					"$0 miab status -u https://box.example.com -e admin@example.com -p password",
+					"Check MIAB server status",
+				);
 		},
 		handler: async (args: StatusOptions) => {
 			const result = await getMiabStatus({

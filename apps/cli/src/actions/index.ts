@@ -1,3 +1,3 @@
 // Export all action modules
-export * from "./status.ts";
-export * from "./test.ts";
+export * from "./miab/status.ts";
+export * from "./miab/test.ts";

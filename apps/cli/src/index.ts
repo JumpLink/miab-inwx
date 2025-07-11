@@ -2,8 +2,7 @@
 
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import { statusCommand } from "./commands/status.ts";
-import { testCommand } from "./commands/test.ts";
+import { miabCommand } from "./commands/miab.ts";
 
 const cli = yargs(hideBin(process.argv))
 	.scriptName("miab-cli")
@@ -18,8 +17,7 @@ const cli = yargs(hideBin(process.argv))
 	.showHelpOnFail(false, "Use --help to see available commands");
 
 // Register commands
-statusCommand(cli);
-testCommand(cli);
+miabCommand(cli);
 
 // Parse and execute
 cli.parse();
