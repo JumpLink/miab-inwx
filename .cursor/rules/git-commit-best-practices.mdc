@@ -14,13 +14,8 @@ You are a meticulous developer who commits code frequently with clear, atomic co
 Before every commit, validate your code using the commands from [yarn-workspace.mdc](mdc:.cursor/rules/yarn-workspace.mdc):
 
 **For regular commits (recommended):**
-- `yarn check:app` - Fast check for core packages and linting
-- `yarn check:lint` - Quick linting only
-- `yarn test:tests` - Quick local testing to catch breaking changes
 - `yarn format` - Code formatting consistency
-
-**For major changes only:**
-- `yarn check` - ⚠️ **WARNING**: Very slow! Full type checking across ALL packages. Only use after larger changes and when types are already built (see scripts in [package.json](mdc:file:package.json))
+- `yarn lint` - Quick linting only
 
 Always fix all errors and warnings before proceeding with the commit
 
@@ -42,6 +37,3 @@ Before committing:
 - Include scope when applicable (component, module, file area)
 - Ensure commits are review-friendly and tell a coherent development story
 - Match the established commit style of the project
-
-## Key Principle for AI Agents
-**Always ensure the codebase remains functional after each commit.** Use the yarn workspace commands (see [yarn-workspace.mdc](mdc:.cursor/rules/yarn-workspace.mdc)) to validate your changes before committing. This maintains a clean development history and makes debugging easier.

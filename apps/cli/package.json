@@ -1,21 +1,21 @@
 {
-    "name": "@miab-inwx/cli",
-    "version": "1.0.0",
-    "description": "A CLI for the MIAB and INWX API",
-    "main": "src/index.ts",
-    "type": "module",
-    "bin": {
-        "miab-cli": "node --experimental-specifier-resolution=node --experimental-strip-types --experimental-transform-types --no-warnings ./src/index.ts"
-    },
-    "scripts": {
-        "start": "node --experimental-specifier-resolution=node --experimental-strip-types --experimental-transform-types --no-warnings ./src/index.ts"
-    },
-    "dependencies": {
-        "@miab-inwx/miab-client": "workspace:*",
-        "yargs": "^18.0.0"
-    },
-    "devDependencies": {
-        "@types/node": "^24.0.12",
-        "typescript": "^5.0.0"
-    }
+	"name": "@miab-inwx/cli",
+	"version": "1.0.0",
+	"description": "A CLI for the MIAB and INWX API",
+	"main": "src/index.ts",
+	"type": "module",
+	"bin": {
+		"miab-cli": "node --experimental-specifier-resolution=node --experimental-strip-types --experimental-transform-types --no-warnings ./src/index.ts"
+	},
+	"scripts": {
+		"start": "node --experimental-specifier-resolution=node --experimental-strip-types --experimental-transform-types --no-warnings ./src/index.ts"
+	},
+	"dependencies": {
+		"@miab-inwx/miab-client": "workspace:*",
+		"yargs": "^18.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.12",
+		"typescript": "^5.0.0"
+	}
 }

@@ -2,12 +2,18 @@
   "name": "@miab-inwx/root",
   "version": "1.0.0",
   "description": "A root package for the MIAB and INWX API",
+  "type": "module",
+  "scripts": {
+    "format": "biome check . --write --unsafe",
+    "lint": "biome lint --write ."
+  },
   "packageManager": "yarn@4.9.2",
   "workspaces": [
     "packages/*",
     "apps/*"
   ],
   "dependencies": {
+    "@biomejs/biome": "^2.0.6",
     "typescript": "^5.8.3"
   }
 }

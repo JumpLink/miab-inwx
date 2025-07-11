@@ -3,12 +3,12 @@
 /**
  * Response format (`application/json` or `text/html`).
  */
-export type MailUsersResponseFormat = 'text' | 'json';
+export type MailUsersResponseFormat = "text" | "json";
 
 /**
  * Response format (`application/json` or `text/html`).
  */
-export type MailAliasesResponseFormat = 'text' | 'json';
+export type MailAliasesResponseFormat = "text" | "json";
 
 /**
  * Mail user set password response.
@@ -59,18 +59,18 @@ export type MailUsersResponse = Array<MailUserByDomain>;
  * Mail users by domain.
  */
 export type MailUserByDomain = {
-    domain: Hostname;
-    users: Array<MailUser>;
+	domain: Hostname;
+	users: Array<MailUser>;
 };
 
 /**
  * Mail user details.
  */
 export type MailUser = {
-    email: Email;
-    privileges: Array<MailUserPrivilege>;
-    status: MailUserStatus;
-    mailbox?: string;
+	email: Email;
+	privileges: Array<MailUserPrivilege>;
+	status: MailUserStatus;
+	mailbox?: string;
 };
 
 /**
@@ -82,19 +82,19 @@ export type MailAliasesSimpleResponse = string;
  * Mail aliases by domain.
  */
 export type MailAliasByDomain = {
-    domain: Hostname;
-    aliases: Array<MailAlias>;
+	domain: Hostname;
+	aliases: Array<MailAlias>;
 };
 
 /**
  * Mail alias details.
  */
 export type MailAlias = {
-    address: Email;
-    address_display: Email;
-    forwards_to: Array<Email>;
-    permitted_senders: Array<Email> | null;
-    required: boolean;
+	address: Email;
+	address_display: Email;
+	forwards_to: Array<Email>;
+	permitted_senders: Array<Email> | null;
+	required: boolean;
 };
 
 /**
@@ -106,27 +106,27 @@ export type MailAliasUpsertResponse = string;
  * Mail alias upsert request.
  */
 export type MailAliasUpsertRequest = {
-    /**
-     * Set to `1` when updating an alias.
-     */
-    update_if_exists: number;
-    address: Email;
-    /**
-     * If adding a regular or catch-all alias, the format needs to be `user@example.com`.
-     * Multiple address can be separated by newlines or commas.
-     *
-     * If adding a domain alias, the format needs to be `@example.com`.
-     *
-     */
-    forwards_to: string;
-    /**
-     * Mail users that can send mail claiming to be from any address on the alias domain.
-     * Multiple address can be separated by newlines or commas.
-     *
-     * Leave empty to allow any mail user listed in `forwards_to` to send mail claiming to be from any address on the alias domain.
-     *
-     */
-    permitted_senders: string | null;
+	/**
+	 * Set to `1` when updating an alias.
+	 */
+	update_if_exists: number;
+	address: Email;
+	/**
+	 * If adding a regular or catch-all alias, the format needs to be `user@example.com`.
+	 * Multiple address can be separated by newlines or commas.
+	 *
+	 * If adding a domain alias, the format needs to be `@example.com`.
+	 *
+	 */
+	forwards_to: string;
+	/**
+	 * Mail users that can send mail claiming to be from any address on the alias domain.
+	 * Multiple address can be separated by newlines or commas.
+	 *
+	 * Leave empty to allow any mail user listed in `forwards_to` to send mail claiming to be from any address on the alias domain.
+	 *
+	 */
+	permitted_senders: string | null;
 };
 
 /**
@@ -138,13 +138,13 @@ export type MailAliasRemoveResponse = string;
  * Mail aliases remove request.
  */
 export type MailAliasRemoveRequest = {
-    address: Email;
+	address: Email;
 };
 
 /**
  * DNS record type.
  */
-export type DnsRecordType = 'A' | 'AAAA' | 'CAA' | 'CNAME' | 'TXT' | 'MX' | 'SRV' | 'SSHFP' | 'NS';
+export type DnsRecordType = "A" | "AAAA" | "CAA" | "CNAME" | "TXT" | "MX" | "SRV" | "SSHFP" | "NS";
 
 /**
  * DNS dump response.
@@ -168,19 +168,19 @@ export type DnsDumpDomainRecords = Array<DnsDumpDomainRecord>;
  * Domain DNS record details.
  */
 export type DnsDumpDomainRecord = {
-    explanation: string;
-    qname: Hostname;
-    rtype?: DnsRecordType;
-    value: string;
+	explanation: string;
+	qname: Hostname;
+	rtype?: DnsRecordType;
+	value: string;
 };
 
 /**
  * Custom DNS record detail detail.
  */
 export type DnsCustomRecord = {
-    qname: Hostname;
-    rtype: DnsRecordType;
-    value: string;
+	qname: Hostname;
+	rtype: DnsRecordType;
+	value: string;
 };
 
 /**
@@ -199,7 +199,7 @@ export type DnsZonefileResponse = string;
  * Secondary nameserver/s response.
  */
 export type DnsSecondaryNameserverResponse = {
-    hostnames: Array<string>;
+	hostnames: Array<string>;
 };
 
 /**
@@ -216,10 +216,10 @@ export type DnsCustomRecordUpsertResponse = string;
  * DNS update request.
  */
 export type DnsUpdateRequest = {
-    /**
-     * Force an update even if mailinabox detects no changes are required.
-     */
-    force: number;
+	/**
+	 * Force an update even if mailinabox detects no changes are required.
+	 */
+	force: number;
 };
 
 /**
@@ -231,10 +231,10 @@ export type DnsUpdateResponse = string;
  * Secondary nameserver/s add request.
  */
 export type DnsSecondaryNameserverAddRequest = {
-    /**
-     * Hostnames separated with commas or spaces.
-     */
-    hostnames: string;
+	/**
+	 * Hostnames separated with commas or spaces.
+	 */
+	hostnames: string;
 };
 
 /**
@@ -246,69 +246,69 @@ export type DnsSecondaryNameserverAddResponse = string;
  * Update system privacy request.
  */
 export type SystemPrivacyUpdateRequest = {
-    value: SystemPrivacyStatus;
+	value: SystemPrivacyStatus;
 };
 
 /**
  * System privacy status.
  */
-export type SystemPrivacyStatus = 'private' | 'off';
+export type SystemPrivacyStatus = "private" | "off";
 
 /**
  * Mail user set password request.
  */
 export type MailUserSetPasswordRequest = {
-    email: Email;
-    password: string;
+	email: Email;
+	password: string;
 };
 
 /**
  * Mail user add request.
  */
 export type MailUserAddRequest = {
-    email: Email;
-    password: string;
-    privileges: MailUserPrivilege;
+	email: Email;
+	password: string;
+	privileges: MailUserPrivilege;
 };
 
 /**
  * Mail user remove request.
  */
 export type MailUserRemoveRequest = {
-    email: Email;
+	email: Email;
 };
 
 /**
  * Mail user status.
  */
-export type MailUserStatus = 'active' | 'inactive';
+export type MailUserStatus = "active" | "inactive";
 
 /**
  * Mail user privilege.
  */
-export type MailUserPrivilege = 'admin' | '';
+export type MailUserPrivilege = "admin" | "";
 
 /**
  * Mail user add privilege request.
  */
 export type MailUserAddPrivilegeRequest = {
-    email: Email;
-    privilege: MailUserPrivilege;
+	email: Email;
+	privilege: MailUserPrivilege;
 };
 
 /**
  * Mail user remove privilege request.
  */
 export type MailUserRemovePrivilegeRequest = {
-    email: Email;
-    privilege: MailUserPrivilege;
+	email: Email;
+	privilege: MailUserPrivilege;
 };
 
 /**
  * Generate SSL CSR request.
  */
 export type SslcsrGenerateRequest = {
-    countrycode: string;
+	countrycode: string;
 };
 
 /**
@@ -320,15 +320,15 @@ export type SslcsrGenerateResponse = string;
  * Install certificate request. `chain` can be an empty string.
  */
 export type SslCertificateInstallRequest = {
-    domain: Hostname;
-    /**
-     * TLS/SSL certificate.
-     */
-    cert: string;
-    /**
-     * TLS/SSL intermediate chain (if provided, else empty string).
-     */
-    chain: string;
+	domain: Hostname;
+	/**
+	 * TLS/SSL certificate.
+	 */
+	cert: string;
+	/**
+	 * TLS/SSL intermediate chain (if provided, else empty string).
+	 */
+	chain: string;
 };
 
 /**
@@ -340,11 +340,11 @@ export type SslCertificateInstallResponse = string;
  * SSL certificates provision response.
  */
 export type SslCertificatesProvisionResponse = {
-    requests: Array<{
-        log: Array<string>;
-        result: 'installed' | 'error' | 'skipped';
-        domains: Array<Hostname>;
-    }>;
+	requests: Array<{
+		log: Array<string>;
+		result: "installed" | "error" | "skipped";
+		domains: Array<Hostname>;
+	}>;
 };
 
 /**
@@ -404,32 +404,32 @@ export type SystemStatusResponse = Array<StatusEntry>;
  * System status entry.
  */
 export type StatusEntry = {
-    type: StatusEntryType;
-    text: string;
-    extra: Array<StatusEntryExtra>;
+	type: StatusEntryType;
+	text: string;
+	extra: Array<StatusEntryExtra>;
 };
 
 /**
  * System status entry type.
  */
-export type StatusEntryType = 'heading' | 'ok' | 'warning' | 'error';
+export type StatusEntryType = "heading" | "ok" | "warning" | "error";
 
 /**
  * System entry extra information.
  */
 export type StatusEntryExtra = {
-    monospace: boolean;
-    text: string;
+	monospace: boolean;
+	text: string;
 };
 
 /**
  * Backup config update request.
  */
 export type SystemBackupConfigUpdateRequest = {
-    target: string;
-    target_user: string;
-    target_pass: string;
-    min_age: number;
+	target: string;
+	target_user: string;
+	target_pass: string;
+	min_age: number;
 };
 
 /**
@@ -441,58 +441,58 @@ export type SystemBackupConfigUpdateResponse = string;
  * Backup config response.
  */
 export type SystemBackupConfigResponse = {
-    enc_pw_file: string;
-    file_target_directory: string;
-    min_age_in_days: number;
-    ssh_pub_key: string;
-    target: string;
-    target_user?: string;
-    target_pass?: string;
+	enc_pw_file: string;
+	file_target_directory: string;
+	min_age_in_days: number;
+	ssh_pub_key: string;
+	target: string;
+	target_user?: string;
+	target_pass?: string;
 };
 
 /**
  * Backup status response. Lists the status for all backups.
  */
 export type SystemBackupStatusResponse = {
-    backups?: Array<SystemBackupStatus>;
-    unmatched_file_size: number;
-    error?: string;
+	backups?: Array<SystemBackupStatus>;
+	unmatched_file_size: number;
+	error?: string;
 };
 
 /**
  * Backup status details.
  */
 export type SystemBackupStatus = {
-    date: string;
-    date_delta: string;
-    date_str: string;
-    deleted_in?: string;
-    full: boolean;
-    size: number;
-    volumes: number;
+	date: string;
+	date_delta: string;
+	date_str: string;
+	deleted_in?: string;
+	full: boolean;
+	size: number;
+	volumes: number;
 };
 
 /**
  * SSL status response for all relevant domains.
  */
 export type SslStatusResponse = {
-    can_provision: Array<string>;
-    status: Array<SslStatus>;
+	can_provision: Array<string>;
+	status: Array<SslStatus>;
 };
 
 /**
  * SSL status details for domain.
  */
 export type SslStatus = {
-    domain: Hostname;
-    status: SslStatusType;
-    text: string;
+	domain: Hostname;
+	status: SslStatusType;
+	text: string;
 };
 
 /**
  * SSL status type.
  */
-export type SslStatusType = 'success' | 'danger' | 'not-applicable';
+export type SslStatusType = "success" | "danger" | "not-applicable";
 
 /**
  * Email format.
@@ -508,30 +508,27 @@ export type Hostname = string;
  * Me (user) response.
  */
 export type MeResponse = {
-    api_key?: string;
-    email?: Email;
-    privileges?: Array<MailUserPrivilege>;
-    reason?: string;
-    status: MeAuthStatus;
+	api_key?: string;
+	email?: Email;
+	privileges?: Array<MailUserPrivilege>;
+	reason?: string;
+	status: MeAuthStatus;
 };
 
 /**
  * Me (user) authentication result.
  */
-export type MeAuthStatus = 'ok' | 'invalid';
+export type MeAuthStatus = "ok" | "invalid";
 
 /**
  * Web domain details.
  */
 export type WebDomain = {
-    custom_root: string;
-    domain: Hostname;
-    root: string;
-    ssl_certificate: [
-        string | 'danger' | 'success',
-        string | 'danger' | 'success'
-    ];
-    static_enabled: boolean;
+	custom_root: string;
+	domain: Hostname;
+	root: string;
+	ssl_certificate: [string | "danger" | "success", string | "danger" | "success"];
+	static_enabled: boolean;
 };
 
 /**
@@ -540,34 +537,34 @@ export type WebDomain = {
 export type WebUpdateResponse = string;
 
 export type MfaStatusResponse = {
-    enabled_mfa?: {
-        id?: string;
-        type?: string;
-        label?: string;
-    } | null;
-    new_mfa?: {
-        type?: string;
-        secret?: string;
-        qr_code_base64?: string;
-    };
+	enabled_mfa?: {
+		id?: string;
+		type?: string;
+		label?: string;
+	} | null;
+	new_mfa?: {
+		type?: string;
+		secret?: string;
+		qr_code_base64?: string;
+	};
 };
 
 export type MfaEnableRequest = {
-    secret: string;
-    code: string;
-    label?: string;
+	secret: string;
+	code: string;
+	label?: string;
 };
 
 export type MfaEnableSuccessResponse = string;
 
 export type MfaDisableRequest = {
-    mfa_id?: string | null;
+	mfa_id?: string | null;
 };
 
 export type MfaDisableSuccessResponse = string;
 
 export type LogoutResponse = {
-    status?: string;
+	status?: string;
 };
 
 /**
@@ -576,1373 +573,1382 @@ export type LogoutResponse = {
 export type DnsCustomRecordRequest = string;
 
 export type LoginData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/login';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/login";
 };
 
 export type LoginResponses = {
-    /**
-     * Successful operation
-     */
-    200: MeResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MeResponse;
 };
 
 export type LoginResponse = LoginResponses[keyof LoginResponses];
 
 export type LogoutData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/logout';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/logout";
 };
 
 export type LogoutResponses = {
-    /**
-     * Successful operation
-     */
-    200: LogoutResponse;
+	/**
+	 * Successful operation
+	 */
+	200: LogoutResponse;
 };
 
 export type LogoutResponse2 = LogoutResponses[keyof LogoutResponses];
 
 export type GetSystemStatusData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/system/status';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/system/status";
 };
 
 export type GetSystemStatusErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetSystemStatusError = GetSystemStatusErrors[keyof GetSystemStatusErrors];
 
 export type GetSystemStatusResponses = {
-    /**
-     * Successful operation
-     */
-    200: SystemStatusResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SystemStatusResponse;
 };
 
 export type GetSystemStatusResponse = GetSystemStatusResponses[keyof GetSystemStatusResponses];
 
 export type GetSystemVersionData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/system/version';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/system/version";
 };
 
 export type GetSystemVersionErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetSystemVersionError = GetSystemVersionErrors[keyof GetSystemVersionErrors];
 
 export type GetSystemVersionResponses = {
-    /**
-     * Successful operation
-     */
-    200: SystemVersionResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SystemVersionResponse;
 };
 
 export type GetSystemVersionResponse = GetSystemVersionResponses[keyof GetSystemVersionResponses];
 
 export type GetSystemUpstreamVersionData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/system/latest-upstream-version';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/system/latest-upstream-version";
 };
 
 export type GetSystemUpstreamVersionErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetSystemUpstreamVersionError = GetSystemUpstreamVersionErrors[keyof GetSystemUpstreamVersionErrors];
 
 export type GetSystemUpstreamVersionResponses = {
-    /**
-     * Successful operation
-     */
-    200: SystemVersionUpstreamResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SystemVersionUpstreamResponse;
 };
 
-export type GetSystemUpstreamVersionResponse = GetSystemUpstreamVersionResponses[keyof GetSystemUpstreamVersionResponses];
+export type GetSystemUpstreamVersionResponse =
+	GetSystemUpstreamVersionResponses[keyof GetSystemUpstreamVersionResponses];
 
 export type GetSystemUpdatesData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/system/updates';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/system/updates";
 };
 
 export type GetSystemUpdatesErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetSystemUpdatesError = GetSystemUpdatesErrors[keyof GetSystemUpdatesErrors];
 
 export type GetSystemUpdatesResponses = {
-    /**
-     * Successful operation
-     */
-    200: SystemUpdatesResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SystemUpdatesResponse;
 };
 
 export type GetSystemUpdatesResponse = GetSystemUpdatesResponses[keyof GetSystemUpdatesResponses];
 
 export type UpdateSystemPackagesData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/system/update-packages';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/system/update-packages";
 };
 
 export type UpdateSystemPackagesErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type UpdateSystemPackagesError = UpdateSystemPackagesErrors[keyof UpdateSystemPackagesErrors];
 
 export type UpdateSystemPackagesResponses = {
-    /**
-     * Successful operation
-     */
-    200: SystemUpdatePackagesResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SystemUpdatePackagesResponse;
 };
 
 export type UpdateSystemPackagesResponse = UpdateSystemPackagesResponses[keyof UpdateSystemPackagesResponses];
 
 export type GetSystemPrivacyStatusData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/system/privacy';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/system/privacy";
 };
 
 export type GetSystemPrivacyStatusErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetSystemPrivacyStatusError = GetSystemPrivacyStatusErrors[keyof GetSystemPrivacyStatusErrors];
 
 export type GetSystemPrivacyStatusResponses = {
-    /**
-     * Successful operation
-     */
-    200: SystemPrivacyStatusResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SystemPrivacyStatusResponse;
 };
 
 export type GetSystemPrivacyStatusResponse = GetSystemPrivacyStatusResponses[keyof GetSystemPrivacyStatusResponses];
 
 export type UpdateSystemPrivacyData = {
-    body: SystemPrivacyUpdateRequest;
-    path?: never;
-    query?: never;
-    url: '/system/privacy';
+	body: SystemPrivacyUpdateRequest;
+	path?: never;
+	query?: never;
+	url: "/system/privacy";
 };
 
 export type UpdateSystemPrivacyErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type UpdateSystemPrivacyError = UpdateSystemPrivacyErrors[keyof UpdateSystemPrivacyErrors];
 
 export type UpdateSystemPrivacyResponses = {
-    /**
-     * Successful operation
-     */
-    200: SystemPrivacyUpdateResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SystemPrivacyUpdateResponse;
 };
 
 export type UpdateSystemPrivacyResponse = UpdateSystemPrivacyResponses[keyof UpdateSystemPrivacyResponses];
 
 export type GetSystemRebootStatusData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/system/reboot';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/system/reboot";
 };
 
 export type GetSystemRebootStatusErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetSystemRebootStatusError = GetSystemRebootStatusErrors[keyof GetSystemRebootStatusErrors];
 
 export type GetSystemRebootStatusResponses = {
-    /**
-     * Successful operation
-     */
-    200: SystemRebootStatusResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SystemRebootStatusResponse;
 };
 
 export type GetSystemRebootStatusResponse = GetSystemRebootStatusResponses[keyof GetSystemRebootStatusResponses];
 
 export type RebootSystemData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/system/reboot';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/system/reboot";
 };
 
 export type RebootSystemErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type RebootSystemError = RebootSystemErrors[keyof RebootSystemErrors];
 
 export type RebootSystemResponses = {
-    /**
-     * Successful operation
-     */
-    200: SystemRebootResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SystemRebootResponse;
 };
 
 export type RebootSystemResponse = RebootSystemResponses[keyof RebootSystemResponses];
 
 export type GetSystemBackupStatusData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/system/backup/status';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/system/backup/status";
 };
 
 export type GetSystemBackupStatusErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetSystemBackupStatusError = GetSystemBackupStatusErrors[keyof GetSystemBackupStatusErrors];
 
 export type GetSystemBackupStatusResponses = {
-    /**
-     * Successful operation
-     */
-    200: SystemBackupStatusResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SystemBackupStatusResponse;
 };
 
 export type GetSystemBackupStatusResponse = GetSystemBackupStatusResponses[keyof GetSystemBackupStatusResponses];
 
 export type GetSystemBackupConfigData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/system/backup/config';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/system/backup/config";
 };
 
 export type GetSystemBackupConfigErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetSystemBackupConfigError = GetSystemBackupConfigErrors[keyof GetSystemBackupConfigErrors];
 
 export type GetSystemBackupConfigResponses = {
-    /**
-     * Successful operation
-     */
-    200: SystemBackupConfigResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SystemBackupConfigResponse;
 };
 
 export type GetSystemBackupConfigResponse = GetSystemBackupConfigResponses[keyof GetSystemBackupConfigResponses];
 
 export type UpdateSystemBackupConfigData = {
-    body: SystemBackupConfigUpdateRequest;
-    path?: never;
-    query?: never;
-    url: '/system/backup/config';
+	body: SystemBackupConfigUpdateRequest;
+	path?: never;
+	query?: never;
+	url: "/system/backup/config";
 };
 
 export type UpdateSystemBackupConfigErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type UpdateSystemBackupConfigError = UpdateSystemBackupConfigErrors[keyof UpdateSystemBackupConfigErrors];
 
 export type UpdateSystemBackupConfigResponses = {
-    /**
-     * Successful operation
-     */
-    200: SystemBackupConfigUpdateResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SystemBackupConfigUpdateResponse;
 };
 
-export type UpdateSystemBackupConfigResponse = UpdateSystemBackupConfigResponses[keyof UpdateSystemBackupConfigResponses];
+export type UpdateSystemBackupConfigResponse =
+	UpdateSystemBackupConfigResponses[keyof UpdateSystemBackupConfigResponses];
 
 export type GetSslStatusData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/ssl/status';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/ssl/status";
 };
 
 export type GetSslStatusErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetSslStatusError = GetSslStatusErrors[keyof GetSslStatusErrors];
 
 export type GetSslStatusResponses = {
-    /**
-     * Successful operation
-     */
-    200: SslStatusResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SslStatusResponse;
 };
 
 export type GetSslStatusResponse = GetSslStatusResponses[keyof GetSslStatusResponses];
 
 export type GenerateSslcsrData = {
-    body: SslcsrGenerateRequest;
-    path: {
-        /**
-         * Domain to generate CSR for.
-         */
-        domain: Hostname;
-    };
-    query?: never;
-    url: '/ssl/csr/{domain}';
+	body: SslcsrGenerateRequest;
+	path: {
+		/**
+		 * Domain to generate CSR for.
+		 */
+		domain: Hostname;
+	};
+	query?: never;
+	url: "/ssl/csr/{domain}";
 };
 
 export type GenerateSslcsrErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GenerateSslcsrError = GenerateSslcsrErrors[keyof GenerateSslcsrErrors];
 
 export type GenerateSslcsrResponses = {
-    /**
-     * Successful operation
-     */
-    200: SslcsrGenerateResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SslcsrGenerateResponse;
 };
 
 export type GenerateSslcsrResponse = GenerateSslcsrResponses[keyof GenerateSslcsrResponses];
 
 export type InstallSslCertificateData = {
-    body: SslCertificateInstallRequest;
-    path?: never;
-    query?: never;
-    url: '/ssl/install';
+	body: SslCertificateInstallRequest;
+	path?: never;
+	query?: never;
+	url: "/ssl/install";
 };
 
 export type InstallSslCertificateErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type InstallSslCertificateError = InstallSslCertificateErrors[keyof InstallSslCertificateErrors];
 
 export type InstallSslCertificateResponses = {
-    /**
-     * Successful operation
-     */
-    200: SslCertificateInstallResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SslCertificateInstallResponse;
 };
 
 export type InstallSslCertificateResponse = InstallSslCertificateResponses[keyof InstallSslCertificateResponses];
 
 export type ProvisionSslCertificatesData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/ssl/provision';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/ssl/provision";
 };
 
 export type ProvisionSslCertificatesErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type ProvisionSslCertificatesError = ProvisionSslCertificatesErrors[keyof ProvisionSslCertificatesErrors];
 
 export type ProvisionSslCertificatesResponses = {
-    /**
-     * Successful operation
-     */
-    200: SslCertificatesProvisionResponse;
+	/**
+	 * Successful operation
+	 */
+	200: SslCertificatesProvisionResponse;
 };
 
-export type ProvisionSslCertificatesResponse = ProvisionSslCertificatesResponses[keyof ProvisionSslCertificatesResponses];
+export type ProvisionSslCertificatesResponse =
+	ProvisionSslCertificatesResponses[keyof ProvisionSslCertificatesResponses];
 
 export type GetDnsSecondaryNameserverData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/dns/secondary-nameserver';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/dns/secondary-nameserver";
 };
 
 export type GetDnsSecondaryNameserverErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetDnsSecondaryNameserverError = GetDnsSecondaryNameserverErrors[keyof GetDnsSecondaryNameserverErrors];
 
 export type GetDnsSecondaryNameserverResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsSecondaryNameserverResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsSecondaryNameserverResponse;
 };
 
-export type GetDnsSecondaryNameserverResponse = GetDnsSecondaryNameserverResponses[keyof GetDnsSecondaryNameserverResponses];
+export type GetDnsSecondaryNameserverResponse =
+	GetDnsSecondaryNameserverResponses[keyof GetDnsSecondaryNameserverResponses];
 
 export type AddDnsSecondaryNameserverData = {
-    body: DnsSecondaryNameserverAddRequest;
-    path?: never;
-    query?: never;
-    url: '/dns/secondary-nameserver';
+	body: DnsSecondaryNameserverAddRequest;
+	path?: never;
+	query?: never;
+	url: "/dns/secondary-nameserver";
 };
 
 export type AddDnsSecondaryNameserverErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type AddDnsSecondaryNameserverError = AddDnsSecondaryNameserverErrors[keyof AddDnsSecondaryNameserverErrors];
 
 export type AddDnsSecondaryNameserverResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsSecondaryNameserverAddResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsSecondaryNameserverAddResponse;
 };
 
-export type AddDnsSecondaryNameserverResponse = AddDnsSecondaryNameserverResponses[keyof AddDnsSecondaryNameserverResponses];
+export type AddDnsSecondaryNameserverResponse =
+	AddDnsSecondaryNameserverResponses[keyof AddDnsSecondaryNameserverResponses];
 
 export type GetDnsZonesData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/dns/zones';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/dns/zones";
 };
 
 export type GetDnsZonesErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetDnsZonesError = GetDnsZonesErrors[keyof GetDnsZonesErrors];
 
 export type GetDnsZonesResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsZonesResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsZonesResponse;
 };
 
 export type GetDnsZonesResponse = GetDnsZonesResponses[keyof GetDnsZonesResponses];
 
 export type GetDnsZonefileData = {
-    body?: never;
-    path: {
-        /**
-         * Hostname
-         */
-        zone: Hostname;
-    };
-    query?: never;
-    url: '/dns/zonefile/{zone}';
+	body?: never;
+	path: {
+		/**
+		 * Hostname
+		 */
+		zone: Hostname;
+	};
+	query?: never;
+	url: "/dns/zonefile/{zone}";
 };
 
 export type GetDnsZonefileErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetDnsZonefileError = GetDnsZonefileErrors[keyof GetDnsZonefileErrors];
 
 export type GetDnsZonefileResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsZonefileResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsZonefileResponse;
 };
 
 export type GetDnsZonefileResponse = GetDnsZonefileResponses[keyof GetDnsZonefileResponses];
 
 export type UpdateDnsData = {
-    body: DnsUpdateRequest;
-    path?: never;
-    query?: never;
-    url: '/dns/update';
+	body: DnsUpdateRequest;
+	path?: never;
+	query?: never;
+	url: "/dns/update";
 };
 
 export type UpdateDnsErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type UpdateDnsError = UpdateDnsErrors[keyof UpdateDnsErrors];
 
 export type UpdateDnsResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsUpdateResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsUpdateResponse;
 };
 
 export type UpdateDnsResponse = UpdateDnsResponses[keyof UpdateDnsResponses];
 
 export type GetDnsCustomRecordsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/dns/custom';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/dns/custom";
 };
 
 export type GetDnsCustomRecordsErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetDnsCustomRecordsError = GetDnsCustomRecordsErrors[keyof GetDnsCustomRecordsErrors];
 
 export type GetDnsCustomRecordsResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsCustomRecordsResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsCustomRecordsResponse;
 };
 
 export type GetDnsCustomRecordsResponse = GetDnsCustomRecordsResponses[keyof GetDnsCustomRecordsResponses];
 
 export type RemoveDnsCustomRecordData = {
-    body: DnsCustomRecordRequest;
-    path: {
-        /**
-         * DNS record query name
-         */
-        qname: Hostname;
-        /**
-         * Record type
-         */
-        rtype: DnsRecordType;
-    };
-    query?: never;
-    url: '/dns/custom/{qname}/{rtype}';
+	body: DnsCustomRecordRequest;
+	path: {
+		/**
+		 * DNS record query name
+		 */
+		qname: Hostname;
+		/**
+		 * Record type
+		 */
+		rtype: DnsRecordType;
+	};
+	query?: never;
+	url: "/dns/custom/{qname}/{rtype}";
 };
 
 export type RemoveDnsCustomRecordErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type RemoveDnsCustomRecordError = RemoveDnsCustomRecordErrors[keyof RemoveDnsCustomRecordErrors];
 
 export type RemoveDnsCustomRecordResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsCustomRecordRemoveResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsCustomRecordRemoveResponse;
 };
 
 export type RemoveDnsCustomRecordResponse = RemoveDnsCustomRecordResponses[keyof RemoveDnsCustomRecordResponses];
 
 export type GetDnsCustomRecordsForQNameAndTypeData = {
-    body?: never;
-    path: {
-        /**
-         * DNS record query name
-         */
-        qname: Hostname;
-        /**
-         * Record type
-         */
-        rtype: DnsRecordType;
-    };
-    query?: never;
-    url: '/dns/custom/{qname}/{rtype}';
+	body?: never;
+	path: {
+		/**
+		 * DNS record query name
+		 */
+		qname: Hostname;
+		/**
+		 * Record type
+		 */
+		rtype: DnsRecordType;
+	};
+	query?: never;
+	url: "/dns/custom/{qname}/{rtype}";
 };
 
 export type GetDnsCustomRecordsForQNameAndTypeErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
-export type GetDnsCustomRecordsForQNameAndTypeError = GetDnsCustomRecordsForQNameAndTypeErrors[keyof GetDnsCustomRecordsForQNameAndTypeErrors];
+export type GetDnsCustomRecordsForQNameAndTypeError =
+	GetDnsCustomRecordsForQNameAndTypeErrors[keyof GetDnsCustomRecordsForQNameAndTypeErrors];
 
 export type GetDnsCustomRecordsForQNameAndTypeResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsCustomRecordsResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsCustomRecordsResponse;
 };
 
-export type GetDnsCustomRecordsForQNameAndTypeResponse = GetDnsCustomRecordsForQNameAndTypeResponses[keyof GetDnsCustomRecordsForQNameAndTypeResponses];
+export type GetDnsCustomRecordsForQNameAndTypeResponse =
+	GetDnsCustomRecordsForQNameAndTypeResponses[keyof GetDnsCustomRecordsForQNameAndTypeResponses];
 
 export type AddDnsCustomRecordData = {
-    body: DnsCustomRecordRequest;
-    path: {
-        /**
-         * DNS record query name
-         */
-        qname: Hostname;
-        /**
-         * Record type
-         */
-        rtype: DnsRecordType;
-    };
-    query?: never;
-    url: '/dns/custom/{qname}/{rtype}';
+	body: DnsCustomRecordRequest;
+	path: {
+		/**
+		 * DNS record query name
+		 */
+		qname: Hostname;
+		/**
+		 * Record type
+		 */
+		rtype: DnsRecordType;
+	};
+	query?: never;
+	url: "/dns/custom/{qname}/{rtype}";
 };
 
 export type AddDnsCustomRecordErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type AddDnsCustomRecordError = AddDnsCustomRecordErrors[keyof AddDnsCustomRecordErrors];
 
 export type AddDnsCustomRecordResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsCustomRecordUpsertResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsCustomRecordUpsertResponse;
 };
 
 export type AddDnsCustomRecordResponse = AddDnsCustomRecordResponses[keyof AddDnsCustomRecordResponses];
 
 export type UpdateDnsCustomRecordData = {
-    body: DnsCustomRecordRequest;
-    path: {
-        /**
-         * DNS record query name
-         */
-        qname: Hostname;
-        /**
-         * Record type
-         */
-        rtype: DnsRecordType;
-    };
-    query?: never;
-    url: '/dns/custom/{qname}/{rtype}';
+	body: DnsCustomRecordRequest;
+	path: {
+		/**
+		 * DNS record query name
+		 */
+		qname: Hostname;
+		/**
+		 * Record type
+		 */
+		rtype: DnsRecordType;
+	};
+	query?: never;
+	url: "/dns/custom/{qname}/{rtype}";
 };
 
 export type UpdateDnsCustomRecordErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type UpdateDnsCustomRecordError = UpdateDnsCustomRecordErrors[keyof UpdateDnsCustomRecordErrors];
 
 export type UpdateDnsCustomRecordResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsCustomRecordUpsertResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsCustomRecordUpsertResponse;
 };
 
 export type UpdateDnsCustomRecordResponse = UpdateDnsCustomRecordResponses[keyof UpdateDnsCustomRecordResponses];
 
 export type RemoveDnsCustomARecordData = {
-    body: DnsCustomRecordRequest;
-    path: {
-        /**
-         * DNS query name.
-         */
-        qname: Hostname;
-    };
-    query?: never;
-    url: '/dns/custom/{qname}';
+	body: DnsCustomRecordRequest;
+	path: {
+		/**
+		 * DNS query name.
+		 */
+		qname: Hostname;
+	};
+	query?: never;
+	url: "/dns/custom/{qname}";
 };
 
 export type RemoveDnsCustomARecordErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type RemoveDnsCustomARecordError = RemoveDnsCustomARecordErrors[keyof RemoveDnsCustomARecordErrors];
 
 export type RemoveDnsCustomARecordResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsCustomRecordRemoveResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsCustomRecordRemoveResponse;
 };
 
 export type RemoveDnsCustomARecordResponse = RemoveDnsCustomARecordResponses[keyof RemoveDnsCustomARecordResponses];
 
 export type GetDnsCustomARecordsForQNameData = {
-    body?: never;
-    path: {
-        /**
-         * DNS query name.
-         */
-        qname: Hostname;
-    };
-    query?: never;
-    url: '/dns/custom/{qname}';
+	body?: never;
+	path: {
+		/**
+		 * DNS query name.
+		 */
+		qname: Hostname;
+	};
+	query?: never;
+	url: "/dns/custom/{qname}";
 };
 
 export type GetDnsCustomARecordsForQNameErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
-export type GetDnsCustomARecordsForQNameError = GetDnsCustomARecordsForQNameErrors[keyof GetDnsCustomARecordsForQNameErrors];
+export type GetDnsCustomARecordsForQNameError =
+	GetDnsCustomARecordsForQNameErrors[keyof GetDnsCustomARecordsForQNameErrors];
 
 export type GetDnsCustomARecordsForQNameResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsCustomRecordsResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsCustomRecordsResponse;
 };
 
-export type GetDnsCustomARecordsForQNameResponse = GetDnsCustomARecordsForQNameResponses[keyof GetDnsCustomARecordsForQNameResponses];
+export type GetDnsCustomARecordsForQNameResponse =
+	GetDnsCustomARecordsForQNameResponses[keyof GetDnsCustomARecordsForQNameResponses];
 
 export type AddDnsCustomARecordData = {
-    body: DnsCustomRecordRequest;
-    path: {
-        /**
-         * DNS query name.
-         */
-        qname: Hostname;
-    };
-    query?: never;
-    url: '/dns/custom/{qname}';
+	body: DnsCustomRecordRequest;
+	path: {
+		/**
+		 * DNS query name.
+		 */
+		qname: Hostname;
+	};
+	query?: never;
+	url: "/dns/custom/{qname}";
 };
 
 export type AddDnsCustomARecordErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type AddDnsCustomARecordError = AddDnsCustomARecordErrors[keyof AddDnsCustomARecordErrors];
 
 export type AddDnsCustomARecordResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsCustomRecordUpsertResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsCustomRecordUpsertResponse;
 };
 
 export type AddDnsCustomARecordResponse = AddDnsCustomARecordResponses[keyof AddDnsCustomARecordResponses];
 
 export type UpdateDnsCustomARecordData = {
-    body: DnsCustomRecordRequest;
-    path: {
-        /**
-         * DNS query name.
-         */
-        qname: Hostname;
-    };
-    query?: never;
-    url: '/dns/custom/{qname}';
+	body: DnsCustomRecordRequest;
+	path: {
+		/**
+		 * DNS query name.
+		 */
+		qname: Hostname;
+	};
+	query?: never;
+	url: "/dns/custom/{qname}";
 };
 
 export type UpdateDnsCustomARecordErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type UpdateDnsCustomARecordError = UpdateDnsCustomARecordErrors[keyof UpdateDnsCustomARecordErrors];
 
 export type UpdateDnsCustomARecordResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsCustomRecordUpsertResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsCustomRecordUpsertResponse;
 };
 
 export type UpdateDnsCustomARecordResponse = UpdateDnsCustomARecordResponses[keyof UpdateDnsCustomARecordResponses];
 
 export type GetDnsDumpData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/dns/dump';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/dns/dump";
 };
 
 export type GetDnsDumpErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetDnsDumpError = GetDnsDumpErrors[keyof GetDnsDumpErrors];
 
 export type GetDnsDumpResponses = {
-    /**
-     * Successful operation
-     */
-    200: DnsDumpResponse;
+	/**
+	 * Successful operation
+	 */
+	200: DnsDumpResponse;
 };
 
 export type GetDnsDumpResponse = GetDnsDumpResponses[keyof GetDnsDumpResponses];
 
 export type GetMailUsersData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * The format of the response.
-         */
-        format?: MailUsersResponseFormat;
-    };
-    url: '/mail/users';
+	body?: never;
+	path?: never;
+	query?: {
+		/**
+		 * The format of the response.
+		 */
+		format?: MailUsersResponseFormat;
+	};
+	url: "/mail/users";
 };
 
 export type GetMailUsersErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetMailUsersError = GetMailUsersErrors[keyof GetMailUsersErrors];
 
 export type GetMailUsersResponses = {
-    /**
-     * Successful operation
-     */
-    200: MailUsersResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MailUsersResponse;
 };
 
 export type GetMailUsersResponse = GetMailUsersResponses[keyof GetMailUsersResponses];
 
 export type AddMailUserData = {
-    body: MailUserAddRequest;
-    path?: never;
-    query?: never;
-    url: '/mail/users/add';
+	body: MailUserAddRequest;
+	path?: never;
+	query?: never;
+	url: "/mail/users/add";
 };
 
 export type AddMailUserErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type AddMailUserError = AddMailUserErrors[keyof AddMailUserErrors];
 
 export type AddMailUserResponses = {
-    /**
-     * Successful operation
-     */
-    200: MailUserAddResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MailUserAddResponse;
 };
 
 export type AddMailUserResponse = AddMailUserResponses[keyof AddMailUserResponses];
 
 export type RemoveMailUserData = {
-    body: MailUserRemoveRequest;
-    path?: never;
-    query?: never;
-    url: '/mail/users/remove';
+	body: MailUserRemoveRequest;
+	path?: never;
+	query?: never;
+	url: "/mail/users/remove";
 };
 
 export type RemoveMailUserErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type RemoveMailUserError = RemoveMailUserErrors[keyof RemoveMailUserErrors];
 
 export type RemoveMailUserResponses = {
-    /**
-     * Successful operation
-     */
-    200: MailUserRemoveResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MailUserRemoveResponse;
 };
 
 export type RemoveMailUserResponse = RemoveMailUserResponses[keyof RemoveMailUserResponses];
 
 export type AddMailUserPrivilegeData = {
-    body: MailUserAddPrivilegeRequest;
-    path?: never;
-    query?: never;
-    url: '/mail/users/privileges/add';
+	body: MailUserAddPrivilegeRequest;
+	path?: never;
+	query?: never;
+	url: "/mail/users/privileges/add";
 };
 
 export type AddMailUserPrivilegeErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type AddMailUserPrivilegeError = AddMailUserPrivilegeErrors[keyof AddMailUserPrivilegeErrors];
 
 export type AddMailUserPrivilegeResponses = {
-    /**
-     * Successful operation
-     */
-    200: MailUserAddPrivilegeResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MailUserAddPrivilegeResponse;
 };
 
 export type AddMailUserPrivilegeResponse = AddMailUserPrivilegeResponses[keyof AddMailUserPrivilegeResponses];
 
 export type RemoveMailUserPrivilegeData = {
-    body: MailUserRemovePrivilegeRequest;
-    path?: never;
-    query?: never;
-    url: '/mail/users/privileges/remove';
+	body: MailUserRemovePrivilegeRequest;
+	path?: never;
+	query?: never;
+	url: "/mail/users/privileges/remove";
 };
 
 export type RemoveMailUserPrivilegeErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type RemoveMailUserPrivilegeError = RemoveMailUserPrivilegeErrors[keyof RemoveMailUserPrivilegeErrors];
 
 export type RemoveMailUserPrivilegeResponses = {
-    /**
-     * Successful operation
-     */
-    200: MailUserRemovePrivilegeResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MailUserRemovePrivilegeResponse;
 };
 
 export type RemoveMailUserPrivilegeResponse = RemoveMailUserPrivilegeResponses[keyof RemoveMailUserPrivilegeResponses];
 
 export type SetMailUserPasswordData = {
-    body: MailUserSetPasswordRequest;
-    path?: never;
-    query?: never;
-    url: '/mail/users/password';
+	body: MailUserSetPasswordRequest;
+	path?: never;
+	query?: never;
+	url: "/mail/users/password";
 };
 
 export type SetMailUserPasswordErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type SetMailUserPasswordError = SetMailUserPasswordErrors[keyof SetMailUserPasswordErrors];
 
 export type SetMailUserPasswordResponses = {
-    /**
-     * Successful operation
-     */
-    200: MailUserSetPasswordResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MailUserSetPasswordResponse;
 };
 
 export type SetMailUserPasswordResponse = SetMailUserPasswordResponses[keyof SetMailUserPasswordResponses];
 
 export type GetMailUserPrivilegesData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * The email you want to get privileges for.
-         */
-        email?: Email;
-    };
-    url: '/mail/users/privileges';
+	body?: never;
+	path?: never;
+	query?: {
+		/**
+		 * The email you want to get privileges for.
+		 */
+		email?: Email;
+	};
+	url: "/mail/users/privileges";
 };
 
 export type GetMailUserPrivilegesErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetMailUserPrivilegesError = GetMailUserPrivilegesErrors[keyof GetMailUserPrivilegesErrors];
 
 export type GetMailUserPrivilegesResponses = {
-    /**
-     * Successful operation
-     */
-    200: MailUserPrivilegesResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MailUserPrivilegesResponse;
 };
 
 export type GetMailUserPrivilegesResponse = GetMailUserPrivilegesResponses[keyof GetMailUserPrivilegesResponses];
 
 export type GetMailDomainsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/mail/domains';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/mail/domains";
 };
 
 export type GetMailDomainsErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetMailDomainsError = GetMailDomainsErrors[keyof GetMailDomainsErrors];
 
 export type GetMailDomainsResponses = {
-    /**
-     * Successful operation
-     */
-    200: MailDomainsResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MailDomainsResponse;
 };
 
 export type GetMailDomainsResponse = GetMailDomainsResponses[keyof GetMailDomainsResponses];
 
 export type GetMailAliasesData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * The format of the response.
-         */
-        format?: MailAliasesResponseFormat;
-    };
-    url: '/mail/aliases';
+	body?: never;
+	path?: never;
+	query?: {
+		/**
+		 * The format of the response.
+		 */
+		format?: MailAliasesResponseFormat;
+	};
+	url: "/mail/aliases";
 };
 
 export type GetMailAliasesErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetMailAliasesError = GetMailAliasesErrors[keyof GetMailAliasesErrors];
 
 export type GetMailAliasesResponses = {
-    /**
-     * Successful operation
-     */
-    200: Array<MailAliasByDomain>;
+	/**
+	 * Successful operation
+	 */
+	200: Array<MailAliasByDomain>;
 };
 
 export type GetMailAliasesResponse = GetMailAliasesResponses[keyof GetMailAliasesResponses];
 
 export type UpsertMailAliasData = {
-    body: MailAliasUpsertRequest;
-    path?: never;
-    query?: never;
-    url: '/mail/aliases/add';
+	body: MailAliasUpsertRequest;
+	path?: never;
+	query?: never;
+	url: "/mail/aliases/add";
 };
 
 export type UpsertMailAliasErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type UpsertMailAliasError = UpsertMailAliasErrors[keyof UpsertMailAliasErrors];
 
 export type UpsertMailAliasResponses = {
-    /**
-     * Successful operation
-     */
-    200: MailAliasUpsertResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MailAliasUpsertResponse;
 };
 
 export type UpsertMailAliasResponse = UpsertMailAliasResponses[keyof UpsertMailAliasResponses];
 
 export type RemoveMailAliasData = {
-    body: MailAliasRemoveRequest;
-    path?: never;
-    query?: never;
-    url: '/mail/aliases/remove';
+	body: MailAliasRemoveRequest;
+	path?: never;
+	query?: never;
+	url: "/mail/aliases/remove";
 };
 
 export type RemoveMailAliasErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type RemoveMailAliasError = RemoveMailAliasErrors[keyof RemoveMailAliasErrors];
 
 export type RemoveMailAliasResponses = {
-    /**
-     * Successful operation
-     */
-    200: MailAliasRemoveResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MailAliasRemoveResponse;
 };
 
 export type RemoveMailAliasResponse = RemoveMailAliasResponses[keyof RemoveMailAliasResponses];
 
 export type GetWebDomainsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/web/domains';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/web/domains";
 };
 
 export type GetWebDomainsErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type GetWebDomainsError = GetWebDomainsErrors[keyof GetWebDomainsErrors];
 
 export type GetWebDomainsResponses = {
-    /**
-     * Successful operation
-     */
-    200: Array<WebDomain>;
+	/**
+	 * Successful operation
+	 */
+	200: Array<WebDomain>;
 };
 
 export type GetWebDomainsResponse = GetWebDomainsResponses[keyof GetWebDomainsResponses];
 
 export type UpdateWebData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/web/update';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/web/update";
 };
 
 export type UpdateWebErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type UpdateWebError = UpdateWebErrors[keyof UpdateWebErrors];
 
 export type UpdateWebResponses = {
-    /**
-     * Successful operation
-     */
-    200: WebUpdateResponse;
+	/**
+	 * Successful operation
+	 */
+	200: WebUpdateResponse;
 };
 
 export type UpdateWebResponse = UpdateWebResponses[keyof UpdateWebResponses];
 
 export type MfaStatusData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/mfa/status';
+	body?: never;
+	path?: never;
+	query?: never;
+	url: "/mfa/status";
 };
 
 export type MfaStatusErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type MfaStatusError = MfaStatusErrors[keyof MfaStatusErrors];
 
 export type MfaStatusResponses = {
-    /**
-     * Successful operation
-     */
-    200: MfaStatusResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MfaStatusResponse;
 };
 
 export type MfaStatusResponse2 = MfaStatusResponses[keyof MfaStatusResponses];
 
 export type MfaTotpEnableData = {
-    body: MfaEnableRequest;
-    path?: never;
-    query?: never;
-    url: '/mfa/totp/enable';
+	body: MfaEnableRequest;
+	path?: never;
+	query?: never;
+	url: "/mfa/totp/enable";
 };
 
 export type MfaTotpEnableErrors = {
-    /**
-     * Bad request
-     */
-    400: string;
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Bad request
+	 */
+	400: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type MfaTotpEnableError = MfaTotpEnableErrors[keyof MfaTotpEnableErrors];
 
 export type MfaTotpEnableResponses = {
-    /**
-     * Successful operation
-     */
-    200: MfaEnableSuccessResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MfaEnableSuccessResponse;
 };
 
 export type MfaTotpEnableResponse = MfaTotpEnableResponses[keyof MfaTotpEnableResponses];
 
 export type MfaTotpDisableData = {
-    body?: MfaDisableRequest;
-    path?: never;
-    query?: never;
-    url: '/mfa/disable';
+	body?: MfaDisableRequest;
+	path?: never;
+	query?: never;
+	url: "/mfa/disable";
 };
 
 export type MfaTotpDisableErrors = {
-    /**
-     * Forbidden
-     */
-    403: string;
+	/**
+	 * Forbidden
+	 */
+	403: string;
 };
 
 export type MfaTotpDisableError = MfaTotpDisableErrors[keyof MfaTotpDisableErrors];
 
 export type MfaTotpDisableResponses = {
-    /**
-     * Successful operation
-     */
-    200: MfaDisableSuccessResponse;
+	/**
+	 * Successful operation
+	 */
+	200: MfaDisableSuccessResponse;
 };
 
 export type MfaTotpDisableResponse = MfaTotpDisableResponses[keyof MfaTotpDisableResponses];
 
 export type ClientOptions = {
-    baseUrl: 'https://{host}/admin' | (string & {});
+	baseUrl: "https://{host}/admin" | (string & {});
 };
