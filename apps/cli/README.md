@@ -1,127 +1,169 @@
-# @miab-inwx/cli
+# MIAB CLI Tool
 
-A TypeScript CLI application for interacting with the Mail-in-a-Box (MIAB) API. This is part of the miab-inwx project for synchronizing MIAB DNS entries with INWX nameserver.
+A command-line interface for managing Mail-in-a-Box (MIAB) and INWX operations, including DNS record migration.
 
-## Structure
+## Setup
 
-```
-src/
-├── index.ts          # Main CLI entry point
-├── types/            # TypeScript types and interfaces
-│   ├── index.ts      # Common types
-│   └── commands.ts   # Command-specific types
-├── commands/         # CLI command definitions
-│   ├── index.ts      # Command exports
-│   └── status.ts     # Status command
-└── actions/          # Business logic and API interactions
-    ├── index.ts      # Action exports
-    └── miab.ts       # MIAB API actions
-```
-
-## Installation
-
-This package is part of the miab-inwx monorepo. Install dependencies from the root:
+### 1. Install Dependencies
 
 ```bash
-# From the root directory
 yarn install
 ```
 
-## Development
+### 2. Configure Environment Variables
 
-Run the CLI in development mode:
+Create a `.env` file in your project root directory:
 
 ```bash
-# From the CLI directory
-yarn start --help
-
-# Or from the root directory
-yarn workspace @miab-inwx/cli start --help
+cp .env.example .env
 ```
 
-**Note:** The CLI uses Node.js experimental TypeScript features internally, but must be run through Yarn to resolve workspace dependencies correctly.
+Edit the `.env` file with your actual credentials:
+
+```bash
+# MIAB (Mail-in-a-Box) Configuration
+MIAB_URL=https://box.example.com/admin
+MIAB_USERNAME=admin@example.com
+MIAB_PASSWORD=your-miab-password
+
+# INWX Configuration
+INWX_USERNAME=your-inwx-username
+INWX_PASSWORD=your-inwx-password
+INWX_SHARED_SECRET=your-2fa-secret
+INWX_ENVIRONMENT=ote
+
+# General Configuration
+VERBOSE=false
+```
+
+**Important:** Never commit your `.env` file to version control!
 
 ## Usage
 
-### Status Command
-
-Check the status of a Mail-in-a-Box server:
+### Running the CLI
 
 ```bash
-yarn start status -u https://box.example.com -e admin@example.com -p password
+# From project root
+yarn workspace @miab-inwx/cli start <command>
+
+# Or using npm script
+npm run start <command>
 ```
 
-With verbose output:
+### Available Commands
+
+#### MIAB Commands
 
 ```bash
-yarn start status -u https://box.example.com -e admin@example.com -p password --verbose
+# Test MIAB connection
+yarn workspace @miab-inwx/cli start miab test
+
+# Check MIAB status
+yarn workspace @miab-inwx/cli start miab status
+
+# Verbose output
+yarn workspace @miab-inwx/cli start miab status --verbose
 ```
 
-## Running
-
-The CLI runs TypeScript directly using Node.js experimental TypeScript features (no build step required):
+#### INWX Commands
 
 ```bash
-# Run the CLI (preferred method)
-yarn start
+# Test INWX connection
+yarn workspace @miab-inwx/cli start inwx test
 
-# Or using the global binary (after installing the package)
-miab-cli
+# Check INWX account status
+yarn workspace @miab-inwx/cli start inwx status
+
+# Verbose output
+yarn workspace @miab-inwx/cli start inwx status --verbose
 ```
 
-**Technical Note:** The CLI uses Node.js with `--experimental-strip-types` and `--experimental-transform-types` flags to execute TypeScript directly without a build step.
+#### Migration Commands
 
-## Available Commands
-
-- `status` - Check the comprehensive status of the Mail-in-a-Box server
-- `test` - Test the connection and authentication to the Mail-in-a-Box server
-
-## Command Examples
-
-### Status Command
 ```bash
-# Basic status check
-yarn start status -u https://box.example.com -e admin@example.com -p password
+# Dry run (test without making changes)
+yarn workspace @miab-inwx/cli start migrate dns --dry-run
 
-# Verbose status with detailed information
-yarn start status -u https://box.example.com -e admin@example.com -p password --verbose
+# Actual migration
+yarn workspace @miab-inwx/cli start migrate dns
+
+# Force migration with verbose output
+yarn workspace @miab-inwx/cli start migrate dns --force --verbose
 ```
 
-### Test Command
+### Environment Variables
+
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `MIAB_URL` | MIAB server URL | Yes | - |
+| `MIAB_USERNAME` | MIAB admin email | Yes | - |
+| `MIAB_PASSWORD` | MIAB admin password | Yes | - |
+| `INWX_USERNAME` | INWX username | Yes | - |
+| `INWX_PASSWORD` | INWX password | Yes | - |
+| `INWX_SHARED_SECRET` | INWX 2FA secret | No | - |
+| `INWX_ENVIRONMENT` | INWX environment | No | `ote` |
+| `VERBOSE` | Enable verbose output | No | `false` |
+
+### Environment Configuration
+
+- **INWX_ENVIRONMENT**: 
+  - `ote` - Testing environment (default)
+  - `live` - Production environment
+
+- **VERBOSE**: Set to `true` to enable detailed output for all commands
+
+## Examples
+
+### Testing Connections
+
 ```bash
-# Test connection
-yarn start test -u https://box.example.com -e admin@example.com -p password
-
-# Test with verbose output
-yarn start test -u https://box.example.com -e admin@example.com -p password --verbose
+# Test all connections
+yarn workspace @miab-inwx/cli start miab test
+yarn workspace @miab-inwx/cli start inwx test
 ```
 
-## Features
+### DNS Migration Workflow
 
-- ✅ **Real MIAB API Integration** - Uses the actual Mail-in-a-Box API
-- ✅ **Comprehensive Status Checking** - Shows errors, warnings, and OK status
-- ✅ **Connection Testing** - Verify connectivity and authentication
-- ✅ **Formatted Output** - Clean, readable status reports with emojis
-- ✅ **Verbose Mode** - Detailed information when needed
-- ✅ **Error Handling** - Proper error messages for different scenarios
+```bash
+# 1. Test connections first
+yarn workspace @miab-inwx/cli start miab test
+yarn workspace @miab-inwx/cli start inwx test
 
-## Technical Details
+# 2. Dry run migration (test environment)
+yarn workspace @miab-inwx/cli start migrate dns --dry-run
 
-This CLI leverages modern Node.js features:
-- **Direct TypeScript Execution**: Uses Node.js experimental TypeScript support (`--experimental-strip-types`, `--experimental-transform-types`)
-- **No Build Step**: TypeScript is executed directly without transpilation
-- **Yarn Workspaces**: Dependencies are managed through the monorepo workspace
-- **MIAB API Integration**: Uses `@miab-inwx/miab-client` for all API communication
+# 3. Actual migration (test environment)
+yarn workspace @miab-inwx/cli start migrate dns
 
-## Next Steps
+# 4. For production (update INWX_ENVIRONMENT=live in .env)
+yarn workspace @miab-inwx/cli start migrate dns --dry-run
+yarn workspace @miab-inwx/cli start migrate dns
+```
 
-1. ✅ Install dependencies with `yarn install`
-2. ✅ Implement actual MIAB API integration in `src/actions/miab.ts`
-3. Add more commands as needed (users, domains, SSL, etc.)
-4. Add configuration file support for storing credentials
-5. Add interactive prompts for sensitive information
-6. Implement INWX integration for DNS synchronization
+## Error Handling
 
-## Contributing
+If you encounter credential errors, the CLI will show helpful messages:
 
-This package is part of the miab-inwx monorepo. Please see the root README for contribution guidelines. 
+```bash
+❌ Missing required INWX environment variables: INWX_USERNAME, INWX_PASSWORD
+
+💡 Make sure you have a .env file with the required INWX credentials:
+Example .env file content:
+...
+```
+
+## Security Notes
+
+- Never commit your `.env` file to version control
+- Use test environment (`INWX_ENVIRONMENT=ote`) for testing
+- Always run `--dry-run` before actual migration
+- Keep your credentials secure and rotate them regularly
+
+## Development
+
+To run the CLI in development mode:
+
+```bash
+cd apps/cli
+node --experimental-specifier-resolution=node --experimental-strip-types --experimental-transform-types --no-warnings ./src/index.ts --help
+``` 
