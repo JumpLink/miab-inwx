@@ -2,58 +2,26 @@ import { MiabClient } from "@miab-inwx/miab-client";
 import { ApiClient, Language } from "domrobot-client";
 import type { CommandResult } from "../../types/index.ts";
 import type {
-	ConflictResolutionStrategy,
+	ApiClientConfig,
 	DnsRecord,
 	DnsZone,
 	MigrateDnsData,
 	MigrateDnsOptions,
+	MigrationContext,
 	MigrationResult,
 } from "../../types/migrate-dns.ts";
 import { resolveRecordConflict } from "../../utils/conflict-resolution.ts";
-import { findExistingInwxRecord, updateInwxRecord } from "../../utils/dns.ts";
-import { 
-	INWX_SUCCESS_CODE, 
-	INWX_ZONE_NOT_FOUND_CODE, 
-	INWX_RECORD_EXISTS_CODE, 
-	INWX_POLICY_VIOLATION_CODE 
+import {
+	API_DELAY_MS,
+	INWX_POLICY_VIOLATION_CODE,
+	INWX_RECORD_EXISTS_CODE,
+	INWX_SUCCESS_CODE,
+	INWX_ZONE_NOT_FOUND_CODE,
+	LARGE_ZONE_THRESHOLD,
+	RECORD_PROGRESS_THRESHOLD,
 } from "../../utils/constants.ts";
-import { parseMxRecord, parseSrvRecord, cleanSshfpRecord } from "../../utils/record-parsers.ts";
-const LARGE_ZONE_THRESHOLD = 50;
-const RECORD_PROGRESS_THRESHOLD = 10;
-const API_DELAY_MS = 100;
-
-/**
- * Configuration for API clients
- */
-interface ApiClientConfig {
-	miab: {
-		baseUrl: string;
-		auth: string;
-		verbose?: boolean;
-	};
-	inwx: {
-		client: ApiClient;
-		username: string;
-		password: string;
-		sharedSecret?: string;
-		verbose?: boolean;
-	};
-}
-
-/**
- * Migration context for tracking progress
- */
-interface MigrationContext {
-	totalZones: number;
-	processedZones: number;
-	successfulZones: number;
-	failedZones: number;
-	startTime: number;
-	dryRun: boolean;
-	verbose: boolean;
-	conflictResolution: ConflictResolutionStrategy;
-	excludeDomains: string[];
-}
+import { findExistingInwxRecord, updateInwxRecord } from "../../utils/dns.ts";
+import { cleanSshfpRecord, parseMxRecord, parseSrvRecord } from "../../utils/record-parsers.ts";
 
 /**
  * Migrate DNS records from MIAB to INWX
@@ -837,8 +805,6 @@ function buildRecordParams(record: DnsRecord, domain: string): Record<string, un
 
 	return params;
 }
-
-
 
 /**
  * Handle record creation response

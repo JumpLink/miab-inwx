@@ -1,3 +1,4 @@
+import type { ApiClient } from "domrobot-client";
 import type { MiabConnectionOptions } from "./index.ts";
 import type { InwxConnectionOptions } from "./inwx-test.ts";
 
@@ -12,6 +13,39 @@ export interface MigrateDnsOptions {
 	dryRun?: boolean;
 	conflictResolution?: ConflictResolutionStrategy;
 	excludeDomains?: string[];
+}
+
+/**
+ * Configuration for API clients
+ */
+export interface ApiClientConfig {
+	miab: {
+		baseUrl: string;
+		auth: string;
+		verbose?: boolean;
+	};
+	inwx: {
+		client: ApiClient;
+		username: string;
+		password: string;
+		sharedSecret?: string;
+		verbose?: boolean;
+	};
+}
+
+/**
+ * Migration context for tracking progress
+ */
+export interface MigrationContext {
+	totalZones: number;
+	processedZones: number;
+	successfulZones: number;
+	failedZones: number;
+	startTime: number;
+	dryRun: boolean;
+	verbose: boolean;
+	conflictResolution: ConflictResolutionStrategy;
+	excludeDomains: string[];
 }
 
 export interface DnsRecord {
