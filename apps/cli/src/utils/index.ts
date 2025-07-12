@@ -10,6 +10,9 @@ export * from "./record-parsers.ts";
 // Record comparison utilities
 export * from "./record-comparers.ts";
 
+// Constants
+export * from "./constants.ts";
+
 // Other utilities
 export * from "./env.ts";
 export * from "./formatters.ts";

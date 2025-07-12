@@ -12,7 +12,7 @@ import {
 	INWX_ZONE_NOT_FOUND_CODE,
 	INWX_RECORD_EXISTS_CODE,
 	INWX_POLICY_VIOLATION_CODE
-} from "../types/dns.ts";
+} from "./constants.ts";
 import { 
 	findMatchingRecord, 
 	getDomainName, 
@@ -28,7 +28,7 @@ export {
 	INWX_ZONE_NOT_FOUND_CODE, 
 	INWX_RECORD_EXISTS_CODE,
 	INWX_POLICY_VIOLATION_CODE
-} from "../types/dns.ts";
+} from "./constants.ts";
 
 // Re-export comparison function for backward compatibility
 export { compareRecords } from "./record-comparers.ts";
