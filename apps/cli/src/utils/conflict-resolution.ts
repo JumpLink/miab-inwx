@@ -88,7 +88,10 @@ async function promptForConflictResolution(
 	console.log(`${zoneProgress}    New MIAB record would be:`);
 	console.log(`${zoneProgress}      Name: ${miabRecord.qname}`);
 	console.log(`${zoneProgress}      Type: ${miabRecord.rtype}`);
-	console.log(`${zoneProgress}      Content: ${miabRecord.value}`);
+	// Clean SSHFP records for display consistency
+	const displayValue =
+		miabRecord.rtype === "SSHFP" ? miabRecord.value.replace(/[()]/g, "").replace(/\s+/g, " ").trim() : miabRecord.value;
+	console.log(`${zoneProgress}      Content: ${displayValue}`);
 
 	try {
 		const action = await select({
