@@ -33,9 +33,9 @@ export function debugCommand(yargs: Argv): void {
 				.example("$0 debug --environment live --verbose", "Debug with Live environment and verbose output");
 		},
 		handler: async (args: unknown) => {
-			const options = args as { 
-				"test-zone"?: string; 
-				"list-domains"?: boolean; 
+			const options = args as {
+				"test-zone"?: string;
+				"list-domains"?: boolean;
 				environment?: "ote" | "live";
 				verbose?: boolean;
 			};
@@ -121,7 +121,11 @@ async function testZoneCreation(domain: string, environment: "ote" | "live", ver
 
 		console.log(`🔧 Connecting to INWX ${isOte ? "OTE (Test)" : "Live"} environment...`);
 
-		const inwxApiClient = new ApiClient(inwxConnection.environment === "ote" ? ApiClient.API_URL_OTE : ApiClient.API_URL_LIVE, Language.EN, verbose);
+		const inwxApiClient = new ApiClient(
+			inwxConnection.environment === "ote" ? ApiClient.API_URL_OTE : ApiClient.API_URL_LIVE,
+			Language.EN,
+			verbose,
+		);
 
 		// Login
 		console.log("🔐 Logging in...");
@@ -198,7 +202,11 @@ async function listDomains(environment: "ote" | "live", verbose: boolean): Promi
 
 		console.log(`🔧 Connecting to INWX ${isOte ? "OTE (Test)" : "Live"} environment...`);
 
-		const inwxApiClient = new ApiClient(inwxConnection.environment === "ote" ? ApiClient.API_URL_OTE : ApiClient.API_URL_LIVE, Language.EN, verbose);
+		const inwxApiClient = new ApiClient(
+			inwxConnection.environment === "ote" ? ApiClient.API_URL_OTE : ApiClient.API_URL_LIVE,
+			Language.EN,
+			verbose,
+		);
 
 		// Login
 		console.log("🔐 Logging in...");

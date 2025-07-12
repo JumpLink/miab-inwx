@@ -62,10 +62,7 @@ export function dnsCommand(yargs: Argv): void {
 
 			try {
 				const miabConnection = getMiabConnectionFromEnv(options.verbose || false);
-				const inwxConnection = getInwxConnectionFromEnv(
-					options.environment || "ote",
-					options.verbose || false
-				);
+				const inwxConnection = getInwxConnectionFromEnv(options.environment || "ote", options.verbose || false);
 
 				// Show mode-specific messaging
 				if (options["dry-run"]) {

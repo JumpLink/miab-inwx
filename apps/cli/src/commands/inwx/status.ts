@@ -35,7 +35,7 @@ export function statusCommand(yargs: Argv): void {
 			try {
 				const connectionOptions = getInwxConnectionFromEnv(
 					statusOptions.environment || "ote",
-					statusOptions.verbose || false
+					statusOptions.verbose || false,
 				);
 				const result = await getInwxStatus(connectionOptions);
 

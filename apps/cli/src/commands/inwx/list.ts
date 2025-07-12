@@ -55,7 +55,7 @@ export function listCommand(yargs: Argv): void {
 			try {
 				const connectionOptions = getInwxConnectionFromEnv(
 					listOptions.environment || "ote",
-					listOptions.verbose || false
+					listOptions.verbose || false,
 				);
 				const result = await listInwxDns({
 					...connectionOptions,

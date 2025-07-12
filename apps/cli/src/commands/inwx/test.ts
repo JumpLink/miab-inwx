@@ -35,7 +35,7 @@ export function testCommand(yargs: Argv): void {
 			try {
 				const connectionOptions = getInwxConnectionFromEnv(
 					testOptions.environment || "ote",
-					testOptions.verbose || false
+					testOptions.verbose || false,
 				);
 				const result = await testInwxConnection(connectionOptions);
 
