@@ -82,8 +82,8 @@ export async function migrateDnsRecords(options: MigrateDnsOptions): Promise<Com
 
 		// Filter zones before creating migration context
 		const excludeDomains = options.excludeDomains || [];
-		const filteredZones = dnsZones.data.filter(zone => !excludeDomains.includes(zone.domain));
-		
+		const filteredZones = dnsZones.data.filter((zone) => !excludeDomains.includes(zone.domain));
+
 		logMigrationOverview(dnsZones.data, filteredZones, excludeDomains, environmentInfo.name, dryRun);
 
 		const migrationContext: MigrationContext = {
@@ -349,13 +349,55 @@ function parseMiabDnsDump(dumpData: unknown[]): DnsZone[] {
 			}
 		}
 
-		zones.set(domain, dnsRecords);
+		// Remove duplicates before storing
+		const uniqueRecords = removeDuplicateRecords(dnsRecords);
+		zones.set(domain, uniqueRecords);
 	}
 
 	return Array.from(zones.entries()).map(([domain, records]) => ({
 		domain,
 		records,
 	}));
+}
+
+/**
+ * Remove duplicate DNS records from a list
+ */
+function removeDuplicateRecords(records: DnsRecord[]): DnsRecord[] {
+	const seen = new Set<string>();
+	const uniqueRecords: DnsRecord[] = [];
+	const duplicates: { record: DnsRecord; count: number }[] = [];
+
+	for (const record of records) {
+		// Create a unique key for the record
+		const key = `${record.qname}|${record.rtype}|${record.value}`;
+
+		if (seen.has(key)) {
+			// Track duplicates for logging
+			const existing = duplicates.find(
+				(d) => d.record.qname === record.qname && d.record.rtype === record.rtype && d.record.value === record.value,
+			);
+			if (existing) {
+				existing.count++;
+			} else {
+				duplicates.push({ record, count: 2 });
+			}
+		} else {
+			seen.add(key);
+			uniqueRecords.push(record);
+		}
+	}
+
+	// Log duplicates if any were found
+	if (duplicates.length > 0) {
+		console.log(`⚠️  Found ${duplicates.length} duplicate record types in MIAB data:`);
+		for (const dup of duplicates) {
+			console.log(`   ${dup.record.rtype} ${dup.record.qname} -> ${dup.record.value} (${dup.count} copies, kept 1)`);
+		}
+		console.log(`   Removed ${records.length - uniqueRecords.length} duplicate records total\n`);
+	}
+
+	return uniqueRecords;
 }
 
 /**
@@ -697,10 +739,14 @@ async function migrateRecord(
 					result.updatedRecords++;
 					result.successfulRecords++;
 					if (context.verbose) {
-						const displayValue =
-							record.rtype === "MX"
-								? `${buildRecordParams(record, domain).prio} ${buildRecordParams(record, domain).content}`
-								: record.value;
+						let displayValue = record.value;
+						if (record.rtype === "MX") {
+							const params = buildRecordParams(record, domain);
+							displayValue = `${params.prio} ${params.content}`;
+						} else if (record.rtype === "SRV") {
+							const params = buildRecordParams(record, domain);
+							displayValue = `${params.prio} ${params.weight} ${params.port} ${params.content}`;
+						}
 						console.log(`${zoneProgress}   🔄 Updated ${record.rtype} record: ${record.qname} -> ${displayValue}`);
 					}
 				} else {
@@ -743,6 +789,12 @@ function buildRecordParams(record: DnsRecord, domain: string): Record<string, un
 		const { prio, content } = parseMxRecord(record.value);
 		params.prio = prio;
 		params.content = content;
+	} else if (record.rtype === "SRV") {
+		const { prio, weight, port, content } = parseSrvRecord(record.value);
+		params.prio = prio;
+		params.weight = weight;
+		params.port = port;
+		params.content = content;
 	} else if (record.rtype === "SSHFP") {
 		params.content = cleanSshfpRecord(record.value);
 	} else {
@@ -766,6 +818,22 @@ function parseMxRecord(value: string): { prio: number; content: string } {
 }
 
 /**
+ * Parse SRV record value
+ */
+function parseSrvRecord(value: string): { prio: number; weight: number; port: number; content: string } {
+	const srvParts = value.trim().split(/\s+/);
+	if (srvParts.length >= 4) {
+		const priority = parseInt(srvParts[0], 10);
+		const weight = parseInt(srvParts[1], 10);
+		const port = parseInt(srvParts[2], 10);
+		const content = srvParts.slice(3).join(" ");
+		return { prio: priority, weight, port, content };
+	}
+	// Fallback if parsing fails
+	return { prio: 0, weight: 0, port: 80, content: value };
+}
+
+/**
  * Clean SSHFP record value
  */
 function cleanSshfpRecord(value: string): string {
@@ -786,13 +854,23 @@ function handleRecordCreationResponse(
 	if (response.code === INWX_SUCCESS_CODE) {
 		result.successfulRecords++;
 		if (context.verbose) {
-			const displayValue = record.rtype === "MX" ? `${recordParams.prio} ${recordParams.content}` : record.value;
+			let displayValue = record.value;
+			if (record.rtype === "MX") {
+				displayValue = `${recordParams.prio} ${recordParams.content}`;
+			} else if (record.rtype === "SRV") {
+				displayValue = `${recordParams.prio} ${recordParams.weight} ${recordParams.port} ${recordParams.content}`;
+			}
 			console.log(`${zoneProgress}   ✅ Created ${record.rtype} record: ${record.qname} -> ${displayValue}`);
 		}
 	} else if (response.code === INWX_RECORD_EXISTS_CODE) {
 		result.successfulRecords++;
 		if (context.verbose) {
-			const displayValue = record.rtype === "MX" ? `${recordParams.prio} ${recordParams.content}` : record.value;
+			let displayValue = record.value;
+			if (record.rtype === "MX") {
+				displayValue = `${recordParams.prio} ${recordParams.content}`;
+			} else if (record.rtype === "SRV") {
+				displayValue = `${recordParams.prio} ${recordParams.weight} ${recordParams.port} ${recordParams.content}`;
+			}
 			console.log(`${zoneProgress}   ℹ️  ${record.rtype} record already exists: ${record.qname} -> ${displayValue}`);
 		}
 	} else if (response.code === INWX_POLICY_VIOLATION_CODE) {
@@ -914,11 +992,11 @@ function logMigrationStart(environmentName: string, dryRun: boolean, verbose?: b
 }
 
 function logMigrationOverview(
-	allZones: DnsZone[], 
-	filteredZones: DnsZone[], 
-	excludeDomains: string[], 
-	environmentName: string, 
-	dryRun: boolean
+	allZones: DnsZone[],
+	filteredZones: DnsZone[],
+	excludeDomains: string[],
+	environmentName: string,
+	dryRun: boolean,
 ): void {
 	const totalRecords = allZones.reduce((sum, zone) => sum + zone.records.length, 0);
 	const filteredRecords = filteredZones.reduce((sum, zone) => sum + zone.records.length, 0);
