@@ -159,14 +159,25 @@ export async function findExistingInwxRecord(
 				const normalizedInwxName = (record.name || "").replace(/\.$/, "");
 
 				if (normalizedInwxName === normalizedMiabName && record.type === miabRecord.rtype) {
-					// For record types that can have multiple instances (like SSHFP),
-					// also match by content to find the exact record
-					if (miabRecord.rtype === "SSHFP") {
-						const cleanedMiabContent = cleanSshfpRecord(miabRecord.value);
-						const cleanedInwxContent = cleanSshfpRecord(record.content || "");
+					// For record types that can have multiple instances, also match by content to find the exact record
+					const needsContentMatching = ["SSHFP", "TXT", "TLSA", "A", "AAAA"].includes(miabRecord.rtype);
+
+					if (needsContentMatching) {
+						let miabContent = miabRecord.value;
+						let inwxContent = record.content || "";
+
+						// Apply type-specific content normalization
+						if (miabRecord.rtype === "SSHFP") {
+							miabContent = cleanSshfpRecord(miabContent);
+							inwxContent = cleanSshfpRecord(inwxContent);
+						} else {
+							// For other types (TXT, TLSA, A, AAAA), normalize trailing dots
+							miabContent = miabContent.replace(/\.$/, "");
+							inwxContent = inwxContent.replace(/\.$/, "");
+						}
 
 						// Only return this record if content also matches
-						if (cleanedMiabContent === cleanedInwxContent) {
+						if (miabContent === inwxContent) {
 							return {
 								success: true,
 								data: {
@@ -181,7 +192,8 @@ export async function findExistingInwxRecord(
 							};
 						}
 					} else {
-						// For other record types, name + type matching is sufficient
+						// For record types that typically have only one instance (CNAME, SOA, etc.),
+						// name + type matching is sufficient
 						return {
 							success: true,
 							data: {
