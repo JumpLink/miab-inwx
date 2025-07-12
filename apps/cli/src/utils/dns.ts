@@ -166,8 +166,8 @@ export async function findExistingInwxRecord(
 							name: record.name || "",
 							type: record.type || "",
 							content: record.content || "",
-							ttl: record.ttl ? parseInt(record.ttl, 10) : undefined,
-							prio: record.prio ? parseInt(record.prio, 10) : undefined,
+							ttl: record.ttl !== undefined ? parseInt(record.ttl, 10) : undefined,
+							prio: record.prio !== undefined ? parseInt(record.prio, 10) : undefined,
 						},
 					};
 				}
