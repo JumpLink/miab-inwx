@@ -167,7 +167,8 @@ export async function findExistingInwxRecord(
 							type: record.type || "",
 							content: record.content || "",
 							ttl: record.ttl !== undefined ? parseInt(record.ttl, 10) : undefined,
-							prio: record.prio !== undefined ? parseInt(record.prio, 10) : undefined,
+							// Only set priority for record types that actually use it
+							prio: record.type === "MX" && record.prio !== undefined ? parseInt(record.prio, 10) : undefined,
 						},
 					};
 				}

@@ -77,7 +77,8 @@ async function promptForConflictResolution(
 	console.log(`${zoneProgress}      Name: ${existingRecord.name}`);
 	console.log(`${zoneProgress}      Type: ${existingRecord.type}`);
 	console.log(`${zoneProgress}      Content: ${existingRecord.content}`);
-	if (existingRecord.prio !== undefined) {
+	// Only show priority for record types that actually use it (MX records)
+	if (existingRecord.prio !== undefined && existingRecord.type === "MX") {
 		console.log(`${zoneProgress}      Priority: ${existingRecord.prio}`);
 	}
 	if (existingRecord.ttl !== undefined) {
