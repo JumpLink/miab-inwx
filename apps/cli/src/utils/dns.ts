@@ -30,144 +30,249 @@ export interface InwxConnectionConfig {
 }
 
 /**
- * Compare two DNS records to check if they are equal
+ * Parsed DNS record data
  */
-export function compareRecords(miabRecord: DnsRecord, inwxRecord: ExistingInwxRecord): RecordComparison {
+interface ParsedMxRecord {
+	prio: number;
+	content: string;
+}
+
+interface ParsedSrvRecord {
+	prio: number;
+	weight: number;
+	port: number;
+	content: string;
+}
+
+/**
+ * Record normalization result
+ */
+interface NormalizedRecord {
+	name: string;
+	content: string;
+}
+
+/**
+ * Environment information for INWX API
+ */
+interface InwxEnvironmentInfo {
+	name: string;
+	apiUrl: string;
+	isOte: boolean;
+}
+
+/**
+ * Normalize record names by removing trailing dots
+ */
+function normalizeRecordName(name: string): string {
+	return name.replace(/\.$/, "");
+}
+
+/**
+ * Normalize record content by removing trailing dots
+ */
+function normalizeRecordContent(content: string): string {
+	return content.replace(/\.$/, "");
+}
+
+/**
+ * Normalize both MIAB and INWX records for comparison
+ */
+function normalizeRecordsForComparison(
+	miabRecord: DnsRecord,
+	inwxRecord: ExistingInwxRecord,
+): { miab: NormalizedRecord; inwx: NormalizedRecord } {
+	return {
+		miab: {
+			name: normalizeRecordName(miabRecord.qname),
+			content: normalizeRecordContent(miabRecord.value),
+		},
+		inwx: {
+			name: normalizeRecordName(inwxRecord.name),
+			content: normalizeRecordContent(inwxRecord.content),
+		},
+	};
+}
+
+/**
+ * Compare record names and types
+ */
+function compareBasicRecordProperties(miabRecord: DnsRecord, inwxRecord: ExistingInwxRecord): string[] {
 	const differences: string[] = [];
+	const normalized = normalizeRecordsForComparison(miabRecord, inwxRecord);
 
-	// Normalize record names for comparison (remove trailing dots)
-	const normalizedMiabName = miabRecord.qname.replace(/\.$/, "");
-	const normalizedInwxName = inwxRecord.name.replace(/\.$/, "");
-
-	// Compare record name
-	if (normalizedMiabName !== normalizedInwxName) {
-		differences.push(`Name: MIAB="${normalizedMiabName}" vs INWX="${normalizedInwxName}"`);
+	if (normalized.miab.name !== normalized.inwx.name) {
+		differences.push(`Name: MIAB="${normalized.miab.name}" vs INWX="${normalized.inwx.name}"`);
 	}
 
-	// Compare record type
 	if (miabRecord.rtype !== inwxRecord.type) {
 		differences.push(`Type: MIAB="${miabRecord.rtype}" vs INWX="${inwxRecord.type}"`);
 	}
 
-	// Compare record content based on type
-	const contentComparison = compareRecordContent(miabRecord, inwxRecord);
-	if (!contentComparison.areEqual) {
-		differences.push(...contentComparison.differences);
+	return differences;
+}
+
+/**
+ * Compare MX record content
+ */
+function compareMxRecordContent(miabRecord: DnsRecord, inwxRecord: ExistingInwxRecord): string[] {
+	const differences: string[] = [];
+	const miabMx = parseMxRecord(miabRecord.value);
+
+	if (miabMx.prio !== inwxRecord.prio) {
+		differences.push(`MX Priority: MIAB="${miabMx.prio}" vs INWX="${inwxRecord.prio}"`);
 	}
 
-	return {
-		areEqual: differences.length === 0,
-		differences,
-	};
+	const normalizedMiabContent = normalizeRecordContent(miabMx.content);
+	const normalizedInwxContent = normalizeRecordContent(inwxRecord.content);
+
+	if (normalizedMiabContent !== normalizedInwxContent) {
+		differences.push(`MX Content: MIAB="${normalizedMiabContent}" vs INWX="${normalizedInwxContent}"`);
+	}
+
+	return differences;
+}
+
+/**
+ * Compare SRV record basic properties
+ */
+function compareSrvRecordBasicProperties(miabSrv: ParsedSrvRecord, inwxRecord: ExistingInwxRecord): string[] {
+	const differences: string[] = [];
+
+	if (miabSrv.prio !== inwxRecord.prio) {
+		differences.push(`SRV Priority: MIAB="${miabSrv.prio}" vs INWX="${inwxRecord.prio}"`);
+	}
+
+	if (inwxRecord.weight !== undefined && miabSrv.weight !== inwxRecord.weight) {
+		differences.push(`SRV Weight: MIAB="${miabSrv.weight}" vs INWX="${inwxRecord.weight}"`);
+	}
+
+	if (inwxRecord.port !== undefined && miabSrv.port !== inwxRecord.port) {
+		differences.push(`SRV Port: MIAB="${miabSrv.port}" vs INWX="${inwxRecord.port}"`);
+	}
+
+	return differences;
+}
+
+/**
+ * Compare SRV record content when INWX doesn't have separate weight/port fields
+ */
+function compareSrvRecordComplexContent(
+	miabSrv: ParsedSrvRecord,
+	inwxRecord: ExistingInwxRecord,
+	normalizedMiabContent: string,
+): string[] {
+	const differences: string[] = [];
+	const inwxParts = inwxRecord.content.trim().split(/\s+/);
+
+	if (inwxParts.length >= 2) {
+		const inwxPort = parseInt(inwxParts[0], 10);
+		const inwxTarget = inwxParts.slice(1).join(" ").replace(/\.$/, "");
+
+		if (miabSrv.port === inwxPort && normalizedMiabContent === inwxTarget) {
+			if (miabSrv.weight !== 0) {
+				differences.push(`SRV Weight: MIAB="${miabSrv.weight}" vs INWX="0 (omitted)"`);
+			}
+		} else if (inwxParts.length >= 3) {
+			const inwxWeight = parseInt(inwxParts[0], 10);
+			const inwxPort2 = parseInt(inwxParts[1], 10);
+			const inwxTarget2 = inwxParts.slice(2).join(" ").replace(/\.$/, "");
+
+			if (miabSrv.weight !== inwxWeight) {
+				differences.push(`SRV Weight: MIAB="${miabSrv.weight}" vs INWX="${inwxWeight}"`);
+			}
+			if (miabSrv.port !== inwxPort2) {
+				differences.push(`SRV Port: MIAB="${miabSrv.port}" vs INWX="${inwxPort2}"`);
+			}
+			if (normalizedMiabContent !== inwxTarget2) {
+				differences.push(`SRV Target: MIAB="${normalizedMiabContent}" vs INWX="${inwxTarget2}"`);
+			}
+		} else {
+			differences.push(`Content: MIAB="${miabSrv.content}" vs INWX="${inwxRecord.content}"`);
+		}
+	} else {
+		differences.push(`Content: MIAB="${miabSrv.content}" vs INWX="${inwxRecord.content}"`);
+	}
+
+	return differences;
+}
+
+/**
+ * Compare SRV record content
+ */
+function compareSrvRecordContent(miabRecord: DnsRecord, inwxRecord: ExistingInwxRecord): string[] {
+	const differences: string[] = [];
+	const miabSrv = parseSrvRecord(miabRecord.value);
+
+	// Compare basic properties
+	differences.push(...compareSrvRecordBasicProperties(miabSrv, inwxRecord));
+
+	// Compare target/content
+	const normalizedMiabContent = normalizeRecordContent(miabSrv.content);
+	const normalizedInwxContent = normalizeRecordContent(inwxRecord.content);
+
+	if (normalizedMiabContent !== normalizedInwxContent) {
+		differences.push(`SRV Target: MIAB="${normalizedMiabContent}" vs INWX="${normalizedInwxContent}"`);
+	}
+
+	// Handle complex content comparison when INWX doesn't have separate fields
+	if (inwxRecord.weight === undefined && inwxRecord.port === undefined) {
+		const complexDifferences = compareSrvRecordComplexContent(miabSrv, inwxRecord, normalizedMiabContent);
+		differences.push(...complexDifferences);
+	}
+
+	return differences;
+}
+
+/**
+ * Compare SSHFP record content
+ */
+function compareSshfpRecordContent(miabRecord: DnsRecord, inwxRecord: ExistingInwxRecord): string[] {
+	const differences: string[] = [];
+	const cleanedMiabValue = cleanSshfpRecord(miabRecord.value);
+	const cleanedInwxValue = cleanSshfpRecord(inwxRecord.content);
+
+	if (cleanedMiabValue !== cleanedInwxValue) {
+		differences.push(`SSHFP Content: MIAB="${cleanedMiabValue}" vs INWX="${cleanedInwxValue}"`);
+	}
+
+	return differences;
+}
+
+/**
+ * Compare generic record content
+ */
+function compareGenericRecordContent(miabRecord: DnsRecord, inwxRecord: ExistingInwxRecord): string[] {
+	const differences: string[] = [];
+	const normalizedMiabValue = normalizeRecordContent(miabRecord.value);
+	const normalizedInwxValue = normalizeRecordContent(inwxRecord.content);
+
+	if (normalizedMiabValue !== normalizedInwxValue) {
+		differences.push(`Content: MIAB="${normalizedMiabValue}" vs INWX="${normalizedInwxValue}"`);
+	}
+
+	return differences;
 }
 
 /**
  * Compare record content based on record type
  */
 function compareRecordContent(miabRecord: DnsRecord, inwxRecord: ExistingInwxRecord): RecordComparison {
-	const differences: string[] = [];
+	let differences: string[] = [];
 
-	if (miabRecord.rtype === "MX") {
-		// Parse MX record from MIAB
-		const miabMx = parseMxRecord(miabRecord.value);
-
-		// Compare priority and content
-		if (miabMx.prio !== inwxRecord.prio) {
-			differences.push(`MX Priority: MIAB="${miabMx.prio}" vs INWX="${inwxRecord.prio}"`);
-		}
-
-		const normalizedMiabContent = miabMx.content.replace(/\.$/, "");
-		const normalizedInwxContent = inwxRecord.content.replace(/\.$/, "");
-
-		if (normalizedMiabContent !== normalizedInwxContent) {
-			differences.push(`MX Content: MIAB="${normalizedMiabContent}" vs INWX="${normalizedInwxContent}"`);
-		}
-	} else if (miabRecord.rtype === "SRV") {
-		// Parse SRV record from MIAB
-		const miabSrv = parseSrvRecord(miabRecord.value);
-
-		// Compare priority (stored in prio field)
-		if (miabSrv.prio !== inwxRecord.prio) {
-			differences.push(`SRV Priority: MIAB="${miabSrv.prio}" vs INWX="${inwxRecord.prio}"`);
-		}
-
-		// Compare weight (INWX might store this separately or in content)
-		if (inwxRecord.weight !== undefined && miabSrv.weight !== inwxRecord.weight) {
-			differences.push(`SRV Weight: MIAB="${miabSrv.weight}" vs INWX="${inwxRecord.weight}"`);
-		}
-
-		// Compare port (INWX might store this separately or in content)
-		if (inwxRecord.port !== undefined && miabSrv.port !== inwxRecord.port) {
-			differences.push(`SRV Port: MIAB="${miabSrv.port}" vs INWX="${inwxRecord.port}"`);
-		}
-
-		// Compare target/content
-		const normalizedMiabContent = miabSrv.content.replace(/\.$/, "");
-		const normalizedInwxContent = inwxRecord.content.replace(/\.$/, "");
-
-		if (normalizedMiabContent !== normalizedInwxContent) {
-			differences.push(`SRV Target: MIAB="${normalizedMiabContent}" vs INWX="${normalizedInwxContent}"`);
-		}
-
-		// If INWX doesn't have separate weight/port fields, try to reconstruct and compare full content
-		if (inwxRecord.weight === undefined && inwxRecord.port === undefined) {
-			// INWX might store the full SRV record content without priority
-			// Common INWX format: "port target" (without priority and weight, assuming weight=0)
-			// Or: "weight port target" (without priority)
-			const inwxParts = inwxRecord.content.trim().split(/\s+/);
-
-			if (inwxParts.length >= 2) {
-				// Try to parse INWX content as "port target" (weight omitted when 0)
-				const inwxPort = parseInt(inwxParts[0], 10);
-				const inwxTarget = inwxParts.slice(1).join(" ").replace(/\.$/, "");
-
-				if (miabSrv.port === inwxPort && normalizedMiabContent === inwxTarget) {
-					// Records match if weight is 0 or omitted
-					if (miabSrv.weight !== 0) {
-						differences.push(`SRV Weight: MIAB="${miabSrv.weight}" vs INWX="0 (omitted)"`);
-					}
-				} else {
-					// Try to parse as "weight port target"
-					if (inwxParts.length >= 3) {
-						const inwxWeight = parseInt(inwxParts[0], 10);
-						const inwxPort2 = parseInt(inwxParts[1], 10);
-						const inwxTarget2 = inwxParts.slice(2).join(" ").replace(/\.$/, "");
-
-						if (miabSrv.weight !== inwxWeight) {
-							differences.push(`SRV Weight: MIAB="${miabSrv.weight}" vs INWX="${inwxWeight}"`);
-						}
-						if (miabSrv.port !== inwxPort2) {
-							differences.push(`SRV Port: MIAB="${miabSrv.port}" vs INWX="${inwxPort2}"`);
-						}
-						if (normalizedMiabContent !== inwxTarget2) {
-							differences.push(`SRV Target: MIAB="${normalizedMiabContent}" vs INWX="${inwxTarget2}"`);
-						}
-					} else {
-						// Fallback: compare full content
-						differences.push(`Content: MIAB="${miabRecord.value}" vs INWX="${inwxRecord.content}"`);
-					}
-				}
-			} else {
-				// Fallback: compare full content
-				differences.push(`Content: MIAB="${miabRecord.value}" vs INWX="${inwxRecord.content}"`);
-			}
-		}
-	} else if (miabRecord.rtype === "SSHFP") {
-		// Clean SSHFP records for comparison
-		const cleanedMiabValue = cleanSshfpRecord(miabRecord.value);
-		const cleanedInwxValue = cleanSshfpRecord(inwxRecord.content);
-
-		if (cleanedMiabValue !== cleanedInwxValue) {
-			differences.push(`SSHFP Content: MIAB="${cleanedMiabValue}" vs INWX="${cleanedInwxValue}"`);
-		}
-	} else {
-		// For other record types, compare content directly
-		const normalizedMiabValue = miabRecord.value.replace(/\.$/, "");
-		const normalizedInwxValue = inwxRecord.content.replace(/\.$/, "");
-
-		if (normalizedMiabValue !== normalizedInwxValue) {
-			differences.push(`Content: MIAB="${normalizedMiabValue}" vs INWX="${normalizedInwxValue}"`);
-		}
+	switch (miabRecord.rtype) {
+		case "MX":
+			differences = compareMxRecordContent(miabRecord, inwxRecord);
+			break;
+		case "SRV":
+			differences = compareSrvRecordContent(miabRecord, inwxRecord);
+			break;
+		case "SSHFP":
+			differences = compareSshfpRecordContent(miabRecord, inwxRecord);
+			break;
+		default:
+			differences = compareGenericRecordContent(miabRecord, inwxRecord);
+			break;
 	}
 
 	return {
@@ -177,9 +282,24 @@ function compareRecordContent(miabRecord: DnsRecord, inwxRecord: ExistingInwxRec
 }
 
 /**
+ * Compare two DNS records to check if they are equal
+ */
+export function compareRecords(miabRecord: DnsRecord, inwxRecord: ExistingInwxRecord): RecordComparison {
+	const basicDifferences = compareBasicRecordProperties(miabRecord, inwxRecord);
+	const contentComparison = compareRecordContent(miabRecord, inwxRecord);
+	
+	const allDifferences = [...basicDifferences, ...contentComparison.differences];
+
+	return {
+		areEqual: allDifferences.length === 0,
+		differences: allDifferences,
+	};
+}
+
+/**
  * Parse MX record value
  */
-function parseMxRecord(value: string): { prio: number; content: string } {
+function parseMxRecord(value: string): ParsedMxRecord {
 	const mxParts = value.trim().split(/\s+/);
 	if (mxParts.length >= 2) {
 		const priority = parseInt(mxParts[0], 10);
@@ -192,7 +312,7 @@ function parseMxRecord(value: string): { prio: number; content: string } {
 /**
  * Parse SRV record value
  */
-function parseSrvRecord(value: string): { prio: number; weight: number; port: number; content: string } {
+function parseSrvRecord(value: string): ParsedSrvRecord {
 	const srvParts = value.trim().split(/\s+/);
 	if (srvParts.length >= 4) {
 		const priority = parseInt(srvParts[0], 10);
@@ -213,6 +333,113 @@ function cleanSshfpRecord(value: string): string {
 }
 
 /**
+ * Check if record type needs content matching for exact identification
+ */
+function recordTypeNeedsContentMatching(recordType: string): boolean {
+	return ["SSHFP", "TXT", "TLSA", "A", "AAAA"].includes(recordType);
+}
+
+/**
+ * Normalize content for matching based on record type
+ */
+function normalizeContentForMatching(content: string, recordType: string): string {
+	if (recordType === "SSHFP") {
+		return cleanSshfpRecord(content);
+	}
+	return normalizeRecordContent(content);
+}
+
+/**
+ * Check if record content matches for content-sensitive record types
+ */
+function doesRecordContentMatch(miabRecord: DnsRecord, inwxRecord: { content: string }): boolean {
+	const miabContent = normalizeContentForMatching(miabRecord.value, miabRecord.rtype);
+	const inwxContent = normalizeContentForMatching(inwxRecord.content, miabRecord.rtype);
+	return miabContent === inwxContent;
+}
+
+/**
+ * Create ExistingInwxRecord from API response record
+ */
+function createExistingInwxRecord(record: any): ExistingInwxRecord {
+	return {
+		id: record.id || "",
+		name: record.name || "",
+		type: record.type || "",
+		content: record.content || "",
+		ttl: record.ttl !== undefined ? parseInt(record.ttl, 10) : undefined,
+		prio: shouldIncludePriority(record) ? parseInt(record.prio, 10) : undefined,
+		weight: shouldIncludeWeight(record) ? parseInt(record.weight, 10) : undefined,
+		port: shouldIncludePort(record) ? parseInt(record.port, 10) : undefined,
+	};
+}
+
+/**
+ * Check if record should include priority field
+ */
+function shouldIncludePriority(record: any): boolean {
+	return (record.type === "MX" || record.type === "SRV") && record.prio !== undefined;
+}
+
+/**
+ * Check if record should include weight field
+ */
+function shouldIncludeWeight(record: any): boolean {
+	return record.type === "SRV" && record.weight !== undefined;
+}
+
+/**
+ * Check if record should include port field
+ */
+function shouldIncludePort(record: any): boolean {
+	return record.type === "SRV" && record.port !== undefined;
+}
+
+/**
+ * Find matching record in records array
+ */
+function findMatchingRecord(records: any[], miabRecord: DnsRecord): ExistingInwxRecord | null {
+	const normalizedMiabName = normalizeRecordName(miabRecord.qname);
+
+	for (const record of records) {
+		if (!record || typeof record !== "object") continue;
+
+		const normalizedInwxName = normalizeRecordName(record.name || "");
+		const isNameAndTypeMatch = normalizedInwxName === normalizedMiabName && record.type === miabRecord.rtype;
+
+		if (!isNameAndTypeMatch) continue;
+
+		const needsContentMatching = recordTypeNeedsContentMatching(miabRecord.rtype);
+
+		if (needsContentMatching) {
+			if (doesRecordContentMatch(miabRecord, record)) {
+				return createExistingInwxRecord(record);
+			}
+		} else {
+			return createExistingInwxRecord(record);
+		}
+	}
+
+	return null;
+}
+
+/**
+ * Handle API errors during record fetching
+ */
+function handleRecordFetchError(error: unknown, domain: string): CommandResult<ExistingInwxRecord | null> {
+	const errorMessage = error instanceof Error ? error.message : "Unknown API error";
+
+	if (errorMessage.includes("Unexpected end of JSON input") || errorMessage.includes("JSON")) {
+		return {
+			success: false,
+			error: `INWX API returned invalid JSON when fetching records for ${domain}. This might be a temporary API issue.`,
+		};
+	}
+
+	throw error;
+}
+
+/**
  * Find existing INWX record that matches the MIAB record
  */
 export async function findExistingInwxRecord(
@@ -222,27 +449,15 @@ export async function findExistingInwxRecord(
 ): Promise<CommandResult<ExistingInwxRecord | null>> {
 	try {
 		let recordsResponse: { code: number; msg: string; resData?: { record?: any[] } };
+		
 		try {
 			recordsResponse = await client.callApi("nameserver.info", { domain });
 		} catch (apiError) {
-			// Handle JSON parsing errors and other API errors
-			const errorMessage = apiError instanceof Error ? apiError.message : "Unknown API error";
-
-			if (errorMessage.includes("Unexpected end of JSON input") || errorMessage.includes("JSON")) {
-				// JSON parsing error - likely empty response from INWX
-				return {
-					success: false,
-					error: `INWX API returned invalid JSON when fetching records for ${domain}. This might be a temporary API issue.`,
-				};
-			}
-
-			// Re-throw other errors to be handled by the outer catch block
-			throw apiError;
+			return handleRecordFetchError(apiError, domain);
 		}
 
 		if (recordsResponse.code !== INWX_SUCCESS_CODE) {
 			if (recordsResponse.code === INWX_ZONE_NOT_FOUND_CODE) {
-				// Zone doesn't exist, so no existing records
 				return { success: true, data: null };
 			}
 			return {
@@ -252,89 +467,49 @@ export async function findExistingInwxRecord(
 		}
 
 		const records = recordsResponse.resData?.record || [];
+		const matchingRecord = findMatchingRecord(records, miabRecord);
 
-		// Normalize MIAB record name for comparison
-		const normalizedMiabName = miabRecord.qname.replace(/\.$/, "");
-
-		// Find matching record by name and type
-		for (const record of records) {
-			if (record && typeof record === "object") {
-				const normalizedInwxName = (record.name || "").replace(/\.$/, "");
-
-				if (normalizedInwxName === normalizedMiabName && record.type === miabRecord.rtype) {
-					// For record types that can have multiple instances, also match by content to find the exact record
-					const needsContentMatching = ["SSHFP", "TXT", "TLSA", "A", "AAAA"].includes(miabRecord.rtype);
-
-					if (needsContentMatching) {
-						let miabContent = miabRecord.value;
-						let inwxContent = record.content || "";
-
-						// Apply type-specific content normalization
-						if (miabRecord.rtype === "SSHFP") {
-							miabContent = cleanSshfpRecord(miabContent);
-							inwxContent = cleanSshfpRecord(inwxContent);
-						} else {
-							// For other types (TXT, TLSA, A, AAAA), normalize trailing dots
-							miabContent = miabContent.replace(/\.$/, "");
-							inwxContent = inwxContent.replace(/\.$/, "");
-						}
-
-						// Only return this record if content also matches
-						if (miabContent === inwxContent) {
-							return {
-								success: true,
-								data: {
-									id: record.id || "",
-									name: record.name || "",
-									type: record.type || "",
-									content: record.content || "",
-									ttl: record.ttl !== undefined ? parseInt(record.ttl, 10) : undefined,
-									// Only set priority for record types that actually use it
-									prio:
-										(record.type === "MX" || record.type === "SRV") && record.prio !== undefined
-											? parseInt(record.prio, 10)
-											: undefined,
-									// SRV-specific fields
-									weight:
-										record.type === "SRV" && record.weight !== undefined ? parseInt(record.weight, 10) : undefined,
-									port: record.type === "SRV" && record.port !== undefined ? parseInt(record.port, 10) : undefined,
-								},
-							};
-						}
-					} else {
-						// For record types that typically have only one instance (CNAME, SOA, etc.),
-						// name + type matching is sufficient
-						return {
-							success: true,
-							data: {
-								id: record.id || "",
-								name: record.name || "",
-								type: record.type || "",
-								content: record.content || "",
-								ttl: record.ttl !== undefined ? parseInt(record.ttl, 10) : undefined,
-								// Only set priority for record types that actually use it
-								prio:
-									(record.type === "MX" || record.type === "SRV") && record.prio !== undefined
-										? parseInt(record.prio, 10)
-										: undefined,
-								// SRV-specific fields
-								weight: record.type === "SRV" && record.weight !== undefined ? parseInt(record.weight, 10) : undefined,
-								port: record.type === "SRV" && record.port !== undefined ? parseInt(record.port, 10) : undefined,
-							},
-						};
-					}
-				}
-			}
-		}
-
-		// No matching record found
-		return { success: true, data: null };
+		return { success: true, data: matchingRecord };
 	} catch (error) {
 		return {
 			success: false,
 			error: `Error finding existing record: ${error instanceof Error ? error.message : "Unknown error"}`,
 		};
 	}
+}
+
+/**
+ * Build update parameters for different record types
+ */
+function buildUpdateParameters(miabRecord: DnsRecord): Record<string, unknown> {
+	const updateParams: Record<string, unknown> = {};
+
+	switch (miabRecord.rtype) {
+		case "MX": {
+			const { prio, content } = parseMxRecord(miabRecord.value);
+			updateParams.prio = prio;
+			updateParams.content = content;
+			break;
+		}
+		case "SRV": {
+			const { prio, weight, port, content } = parseSrvRecord(miabRecord.value);
+			updateParams.prio = prio;
+			updateParams.weight = weight;
+			updateParams.port = port;
+			updateParams.content = content;
+			break;
+		}
+		case "SSHFP": {
+			updateParams.content = cleanSshfpRecord(miabRecord.value);
+			break;
+		}
+		default: {
+			updateParams.content = miabRecord.value;
+			break;
+		}
+	}
+
+	return updateParams;
 }
 
 /**
@@ -347,26 +522,10 @@ export async function updateInwxRecord(
 	miabRecord: DnsRecord,
 ): Promise<CommandResult<void>> {
 	try {
-		const updateParams: Record<string, unknown> = {
+		const updateParams = {
 			id: recordId,
+			...buildUpdateParameters(miabRecord),
 		};
-
-		// Build update parameters based on record type
-		if (miabRecord.rtype === "MX") {
-			const { prio, content } = parseMxRecord(miabRecord.value);
-			updateParams.prio = prio;
-			updateParams.content = content;
-		} else if (miabRecord.rtype === "SRV") {
-			const { prio, weight, port, content } = parseSrvRecord(miabRecord.value);
-			updateParams.prio = prio;
-			updateParams.weight = weight;
-			updateParams.port = port;
-			updateParams.content = content;
-		} else if (miabRecord.rtype === "SSHFP") {
-			updateParams.content = cleanSshfpRecord(miabRecord.value);
-		} else {
-			updateParams.content = miabRecord.value;
-		}
 
 		const updateResponse = await client.callApi("nameserver.updateRecord", updateParams);
 
@@ -477,11 +636,21 @@ export async function fetchMiabDnsZones(config: MiabConnectionConfig): Promise<C
 }
 
 /**
+ * Get domain name from domain info object
+ */
+function getDomainName(domainInfo: unknown): string | null {
+	if (typeof domainInfo === "string") return domainInfo;
+	if (typeof domainInfo === "object" && domainInfo !== null && "domain" in domainInfo) {
+		return String((domainInfo as { domain: unknown }).domain);
+	}
+	return null;
+}
+
+/**
  * Fetch DNS zones from INWX
  */
 export async function fetchInwxDnsZones(client: ApiClient, verbose?: boolean): Promise<CommandResult<DnsZone[]>> {
 	try {
-		// First get list of nameserver domains
 		const nameserverListResponse = await client.callApi("nameserver.list", {});
 
 		if (nameserverListResponse.code !== INWX_SUCCESS_CODE) {
@@ -498,9 +667,8 @@ export async function fetchInwxDnsZones(client: ApiClient, verbose?: boolean): P
 			console.log(`Found ${domains.length} DNS zones in INWX`);
 		}
 
-		// Fetch records for each domain
 		for (const domainInfo of domains) {
-			const domain = typeof domainInfo === "string" ? domainInfo : domainInfo.domain;
+			const domain = getDomainName(domainInfo);
 			if (!domain) continue;
 
 			if (verbose) {
@@ -534,6 +702,23 @@ export async function fetchInwxDnsZones(client: ApiClient, verbose?: boolean): P
 }
 
 /**
+ * Convert INWX record to DNS record format
+ */
+function convertInwxRecordToDnsRecord(record: any): DnsRecord {
+	const dnsRecord: DnsRecord = {
+		qname: record.name || "",
+		rtype: record.type || "",
+		value: record.content || "",
+	};
+
+	if (record.ttl) {
+		dnsRecord.explanation = `TTL: ${record.ttl}`;
+	}
+
+	return dnsRecord;
+}
+
+/**
  * Fetch DNS records for a specific zone from INWX
  */
 export async function fetchInwxZoneRecords(client: ApiClient, domain: string): Promise<CommandResult<DnsRecord[]>> {
@@ -552,19 +737,7 @@ export async function fetchInwxZoneRecords(client: ApiClient, domain: string): P
 
 		for (const record of recordsData) {
 			if (record && typeof record === "object") {
-				// INWX records have different structure than MIAB
-				const dnsRecord: DnsRecord = {
-					qname: record.name || "",
-					rtype: record.type || "",
-					value: record.content || "",
-				};
-
-				// Add TTL if available
-				if (record.ttl) {
-					dnsRecord.explanation = `TTL: ${record.ttl}`;
-				}
-
-				records.push(dnsRecord);
+				records.push(convertInwxRecordToDnsRecord(record));
 			}
 		}
 
@@ -575,6 +748,20 @@ export async function fetchInwxZoneRecords(client: ApiClient, domain: string): P
 			error: `Failed to fetch records for ${domain}: ${error instanceof Error ? error.message : "Unknown error"}`,
 		};
 	}
+}
+
+/**
+ * Convert raw record data to DNS record
+ */
+function convertRawRecordToDnsRecord(record: unknown): DnsRecord | null {
+	if (!isDnsRecord(record)) return null;
+
+	return {
+		qname: String(record.qname),
+		rtype: String(record.rtype),
+		value: String(record.value),
+		explanation: record.explanation ? String(record.explanation) : undefined,
+	};
 }
 
 /**
@@ -593,13 +780,9 @@ export function parseMiabDnsDump(dumpData: unknown[]): DnsZone[] {
 
 		const dnsRecords: DnsRecord[] = [];
 		for (const record of records) {
-			if (isDnsRecord(record)) {
-				dnsRecords.push({
-					qname: String(record.qname),
-					rtype: String(record.rtype),
-					value: String(record.value),
-					explanation: record.explanation ? String(record.explanation) : undefined,
-				});
+			const dnsRecord = convertRawRecordToDnsRecord(record);
+			if (dnsRecord) {
+				dnsRecords.push(dnsRecord);
 			}
 		}
 
@@ -622,25 +805,30 @@ export function isDnsRecord(
 }
 
 /**
+ * Get environment information for INWX API
+ */
+function getInwxEnvironmentInfo(environment: string): InwxEnvironmentInfo {
+	const isOte = environment === "ote";
+	return {
+		name: isOte ? "OTE (Test)" : "Live (Production)",
+		apiUrl: isOte ? ApiClient.API_URL_OTE : ApiClient.API_URL_LIVE,
+		isOte,
+	};
+}
+
+/**
  * Initialize INWX API client with environment info
  */
 export function createInwxClient(config: InwxConnectionConfig): {
 	client: ApiClient;
-	environmentInfo: { name: string; apiUrl: string; isOte: boolean };
+	environmentInfo: InwxEnvironmentInfo;
 } {
-	const isOte = (config.environment || "ote") === "ote";
-	const apiUrl = isOte ? ApiClient.API_URL_OTE : ApiClient.API_URL_LIVE;
-	const environmentName = isOte ? "OTE (Test)" : "Live (Production)";
-
-	const client = new ApiClient(apiUrl, Language.EN, config.verbose);
+	const environmentInfo = getInwxEnvironmentInfo(config.environment || "ote");
+	const client = new ApiClient(environmentInfo.apiUrl, Language.EN, config.verbose);
 
 	return {
 		client,
-		environmentInfo: {
-			name: environmentName,
-			apiUrl,
-			isOte,
-		},
+		environmentInfo,
 	};
 }
 
