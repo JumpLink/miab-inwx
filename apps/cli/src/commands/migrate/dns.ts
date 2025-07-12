@@ -8,6 +8,7 @@ interface DnsOptions {
 	"dry-run"?: boolean;
 	verbose?: boolean;
 	"conflict-resolution"?: ConflictResolutionStrategy;
+	"exclude-domains"?: string[];
 }
 
 export function dnsCommand(yargs: Argv): void {
@@ -34,11 +35,17 @@ export function dnsCommand(yargs: Argv): void {
 					description: "How to handle conflicting DNS records",
 					default: "skip" as ConflictResolutionStrategy,
 				})
+				.option("exclude-domains", {
+					type: "array",
+					description: "Comma-separated list of domains to exclude from migration",
+					coerce: (arg: string[]) => arg.flatMap((item: string) => item.split(",").map((d: string) => d.trim())),
+				})
 				.example("$0 migrate dns --dry-run", "Test DNS migration without making changes")
 				.example("$0 migrate dns", "Migrate DNS records from MIAB to INWX")
 				.example("$0 migrate dns --conflict-resolution=overwrite", "Overwrite conflicting records")
 				.example("$0 migrate dns --conflict-resolution=interactive", "Ask for each conflicting record")
-				.example("$0 migrate dns --verbose", "Migration with verbose output");
+				.example("$0 migrate dns --verbose", "Migration with verbose output")
+				.example("$0 migrate dns --exclude-domains=example.com,test.org", "Exclude specific domains from migration");
 		},
 		handler: async (args: unknown) => {
 			const options = args as DnsOptions;
@@ -76,6 +83,13 @@ export function dnsCommand(yargs: Argv): void {
 						break;
 				}
 
+				// Show excluded domains
+				const excludedDomains = options["exclude-domains"] || [];
+				if (excludedDomains.length > 0) {
+					console.log(`🚫 Excluded Domains: ${excludedDomains.join(", ")}`);
+					console.log("   These domains will be skipped during migration");
+				}
+
 				console.log("\n🔧 Initializing connections...");
 				console.log(`   MIAB Server: ${miabConnection.apiUrl}`);
 				console.log(`   INWX Environment: ${inwxConnection.environment.toUpperCase()}`);
@@ -92,6 +106,7 @@ export function dnsCommand(yargs: Argv): void {
 					},
 					dryRun: options["dry-run"],
 					conflictResolution: conflictStrategy,
+					excludeDomains: options["exclude-domains"],
 				});
 
 				if (result.success) {

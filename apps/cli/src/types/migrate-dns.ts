@@ -11,6 +11,7 @@ export interface MigrateDnsOptions {
 	inwx: InwxConnectionOptions;
 	dryRun?: boolean;
 	conflictResolution?: ConflictResolutionStrategy;
+	excludeDomains?: string[];
 }
 
 export interface DnsRecord {

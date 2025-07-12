@@ -51,6 +51,7 @@ interface MigrationContext {
 	dryRun: boolean;
 	verbose: boolean;
 	conflictResolution: ConflictResolutionStrategy;
+	excludeDomains: string[];
 }
 
 /**
@@ -79,10 +80,14 @@ export async function migrateDnsRecords(options: MigrateDnsOptions): Promise<Com
 			return createErrorResult(dnsZones.error);
 		}
 
-		logMigrationOverview(dnsZones.data, environmentInfo.name, dryRun);
+		// Filter zones before creating migration context
+		const excludeDomains = options.excludeDomains || [];
+		const filteredZones = dnsZones.data.filter(zone => !excludeDomains.includes(zone.domain));
+		
+		logMigrationOverview(dnsZones.data, filteredZones, excludeDomains, environmentInfo.name, dryRun);
 
 		const migrationContext: MigrationContext = {
-			totalZones: dnsZones.data.length,
+			totalZones: filteredZones.length,
 			processedZones: 0,
 			successfulZones: 0,
 			failedZones: 0,
@@ -90,9 +95,10 @@ export async function migrateDnsRecords(options: MigrateDnsOptions): Promise<Com
 			dryRun,
 			verbose: miab.verbose || false,
 			conflictResolution: options.conflictResolution || "skip",
+			excludeDomains: options.excludeDomains || [],
 		};
 
-		const migrationResults = await executeMigration(dnsZones.data, apiConfig.data.inwx.client, migrationContext);
+		const migrationResults = await executeMigration(filteredZones, apiConfig.data.inwx.client, migrationContext);
 
 		await cleanupApiClient(apiConfig.data.inwx.client);
 
@@ -907,13 +913,26 @@ function logMigrationStart(environmentName: string, dryRun: boolean, verbose?: b
 	}
 }
 
-function logMigrationOverview(zones: DnsZone[], environmentName: string, dryRun: boolean): void {
-	const totalRecords = zones.reduce((sum, zone) => sum + zone.records.length, 0);
+function logMigrationOverview(
+	allZones: DnsZone[], 
+	filteredZones: DnsZone[], 
+	excludeDomains: string[], 
+	environmentName: string, 
+	dryRun: boolean
+): void {
+	const totalRecords = allZones.reduce((sum, zone) => sum + zone.records.length, 0);
+	const filteredRecords = filteredZones.reduce((sum, zone) => sum + zone.records.length, 0);
 
 	console.log(`📋 Migration Overview:`);
-	console.log(`  Total DNS Zones: ${zones.length}`);
-	console.log(`  Total DNS Records: ${totalRecords}`);
+	console.log(`  Total DNS Zones Found: ${allZones.length}`);
+	console.log(`  DNS Zones to Migrate: ${filteredZones.length}`);
+	console.log(`  Total DNS Records Found: ${totalRecords}`);
+	console.log(`  DNS Records to Migrate: ${filteredRecords}`);
 	console.log(`  Target Environment: INWX ${environmentName}`);
+
+	if (excludeDomains.length > 0) {
+		console.log(`  Excluded Domains: ${excludeDomains.length} (${excludeDomains.join(", ")})`);
+	}
 
 	if (dryRun) {
 		console.log(`  Mode: DRY RUN (no changes will be made)`);
