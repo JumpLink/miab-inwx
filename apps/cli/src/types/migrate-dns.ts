@@ -44,6 +44,8 @@ export interface ExistingInwxRecord {
 	content: string;
 	ttl?: number;
 	prio?: number;
+	weight?: number; // For SRV records
+	port?: number; // For SRV records
 }
 
 export interface MigrationResult {
