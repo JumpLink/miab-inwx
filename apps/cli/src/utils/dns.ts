@@ -82,6 +82,76 @@ function compareRecordContent(miabRecord: DnsRecord, inwxRecord: ExistingInwxRec
 		if (normalizedMiabContent !== normalizedInwxContent) {
 			differences.push(`MX Content: MIAB="${normalizedMiabContent}" vs INWX="${normalizedInwxContent}"`);
 		}
+	} else if (miabRecord.rtype === "SRV") {
+		// Parse SRV record from MIAB
+		const miabSrv = parseSrvRecord(miabRecord.value);
+
+		// Compare priority (stored in prio field)
+		if (miabSrv.prio !== inwxRecord.prio) {
+			differences.push(`SRV Priority: MIAB="${miabSrv.prio}" vs INWX="${inwxRecord.prio}"`);
+		}
+
+		// Compare weight (INWX might store this separately or in content)
+		if (inwxRecord.weight !== undefined && miabSrv.weight !== inwxRecord.weight) {
+			differences.push(`SRV Weight: MIAB="${miabSrv.weight}" vs INWX="${inwxRecord.weight}"`);
+		}
+
+		// Compare port (INWX might store this separately or in content)
+		if (inwxRecord.port !== undefined && miabSrv.port !== inwxRecord.port) {
+			differences.push(`SRV Port: MIAB="${miabSrv.port}" vs INWX="${inwxRecord.port}"`);
+		}
+
+		// Compare target/content
+		const normalizedMiabContent = miabSrv.content.replace(/\.$/, "");
+		const normalizedInwxContent = inwxRecord.content.replace(/\.$/, "");
+
+		if (normalizedMiabContent !== normalizedInwxContent) {
+			differences.push(`SRV Target: MIAB="${normalizedMiabContent}" vs INWX="${normalizedInwxContent}"`);
+		}
+
+		// If INWX doesn't have separate weight/port fields, try to reconstruct and compare full content
+		if (inwxRecord.weight === undefined && inwxRecord.port === undefined) {
+			// INWX might store the full SRV record content without priority
+			// Common INWX format: "port target" (without priority and weight, assuming weight=0)
+			// Or: "weight port target" (without priority)
+			const inwxParts = inwxRecord.content.trim().split(/\s+/);
+
+			if (inwxParts.length >= 2) {
+				// Try to parse INWX content as "port target" (weight omitted when 0)
+				const inwxPort = parseInt(inwxParts[0], 10);
+				const inwxTarget = inwxParts.slice(1).join(" ").replace(/\.$/, "");
+
+				if (miabSrv.port === inwxPort && normalizedMiabContent === inwxTarget) {
+					// Records match if weight is 0 or omitted
+					if (miabSrv.weight !== 0) {
+						differences.push(`SRV Weight: MIAB="${miabSrv.weight}" vs INWX="0 (omitted)"`);
+					}
+				} else {
+					// Try to parse as "weight port target"
+					if (inwxParts.length >= 3) {
+						const inwxWeight = parseInt(inwxParts[0], 10);
+						const inwxPort2 = parseInt(inwxParts[1], 10);
+						const inwxTarget2 = inwxParts.slice(2).join(" ").replace(/\.$/, "");
+
+						if (miabSrv.weight !== inwxWeight) {
+							differences.push(`SRV Weight: MIAB="${miabSrv.weight}" vs INWX="${inwxWeight}"`);
+						}
+						if (miabSrv.port !== inwxPort2) {
+							differences.push(`SRV Port: MIAB="${miabSrv.port}" vs INWX="${inwxPort2}"`);
+						}
+						if (normalizedMiabContent !== inwxTarget2) {
+							differences.push(`SRV Target: MIAB="${normalizedMiabContent}" vs INWX="${inwxTarget2}"`);
+						}
+					} else {
+						// Fallback: compare full content
+						differences.push(`Content: MIAB="${miabRecord.value}" vs INWX="${inwxRecord.content}"`);
+					}
+				}
+			} else {
+				// Fallback: compare full content
+				differences.push(`Content: MIAB="${miabRecord.value}" vs INWX="${inwxRecord.content}"`);
+			}
+		}
 	} else if (miabRecord.rtype === "SSHFP") {
 		// Clean SSHFP records for comparison
 		const cleanedMiabValue = cleanSshfpRecord(miabRecord.value);
@@ -117,6 +187,22 @@ function parseMxRecord(value: string): { prio: number; content: string } {
 		return { prio: priority, content };
 	}
 	return { prio: 10, content: value };
+}
+
+/**
+ * Parse SRV record value
+ */
+function parseSrvRecord(value: string): { prio: number; weight: number; port: number; content: string } {
+	const srvParts = value.trim().split(/\s+/);
+	if (srvParts.length >= 4) {
+		const priority = parseInt(srvParts[0], 10);
+		const weight = parseInt(srvParts[1], 10);
+		const port = parseInt(srvParts[2], 10);
+		const content = srvParts.slice(3).join(" ");
+		return { prio: priority, weight, port, content };
+	}
+	// Fallback if parsing fails
+	return { prio: 0, weight: 0, port: 80, content: value };
 }
 
 /**
@@ -187,7 +273,14 @@ export async function findExistingInwxRecord(
 									content: record.content || "",
 									ttl: record.ttl !== undefined ? parseInt(record.ttl, 10) : undefined,
 									// Only set priority for record types that actually use it
-									prio: record.type === "MX" && record.prio !== undefined ? parseInt(record.prio, 10) : undefined,
+									prio:
+										(record.type === "MX" || record.type === "SRV") && record.prio !== undefined
+											? parseInt(record.prio, 10)
+											: undefined,
+									// SRV-specific fields
+									weight:
+										record.type === "SRV" && record.weight !== undefined ? parseInt(record.weight, 10) : undefined,
+									port: record.type === "SRV" && record.port !== undefined ? parseInt(record.port, 10) : undefined,
 								},
 							};
 						}
@@ -203,7 +296,13 @@ export async function findExistingInwxRecord(
 								content: record.content || "",
 								ttl: record.ttl !== undefined ? parseInt(record.ttl, 10) : undefined,
 								// Only set priority for record types that actually use it
-								prio: record.type === "MX" && record.prio !== undefined ? parseInt(record.prio, 10) : undefined,
+								prio:
+									(record.type === "MX" || record.type === "SRV") && record.prio !== undefined
+										? parseInt(record.prio, 10)
+										: undefined,
+								// SRV-specific fields
+								weight: record.type === "SRV" && record.weight !== undefined ? parseInt(record.weight, 10) : undefined,
+								port: record.type === "SRV" && record.port !== undefined ? parseInt(record.port, 10) : undefined,
 							},
 						};
 					}
@@ -239,6 +338,12 @@ export async function updateInwxRecord(
 		if (miabRecord.rtype === "MX") {
 			const { prio, content } = parseMxRecord(miabRecord.value);
 			updateParams.prio = prio;
+			updateParams.content = content;
+		} else if (miabRecord.rtype === "SRV") {
+			const { prio, weight, port, content } = parseSrvRecord(miabRecord.value);
+			updateParams.prio = prio;
+			updateParams.weight = weight;
+			updateParams.port = port;
 			updateParams.content = content;
 		} else if (miabRecord.rtype === "SSHFP") {
 			updateParams.content = cleanSshfpRecord(miabRecord.value);
