@@ -1,7 +1,7 @@
+import type { ParsedSrvRecord } from "../types/dns.ts";
 import type { DnsRecord, ExistingInwxRecord, RecordComparison } from "../types/migrate-dns.ts";
-import type { ParsedMxRecord, ParsedSrvRecord } from "../types/dns.ts";
-import { normalizeRecordsForComparison, normalizeRecordContent } from "./dns-helpers.ts";
-import { parseMxRecord, parseSrvRecord, cleanSshfpRecord } from "./record-parsers.ts";
+import { normalizeRecordContent, normalizeRecordsForComparison } from "./dns-helpers.ts";
+import { cleanSshfpRecord, parseMxRecord, parseSrvRecord } from "./record-parsers.ts";
 
 /**
  * Compare record names and types
@@ -196,11 +196,11 @@ export function compareRecordContent(miabRecord: DnsRecord, inwxRecord: Existing
 export function compareRecords(miabRecord: DnsRecord, inwxRecord: ExistingInwxRecord): RecordComparison {
 	const basicDifferences = compareBasicRecordProperties(miabRecord, inwxRecord);
 	const contentComparison = compareRecordContent(miabRecord, inwxRecord);
-	
+
 	const allDifferences = [...basicDifferences, ...contentComparison.differences];
 
 	return {
 		areEqual: allDifferences.length === 0,
 		differences: allDifferences,
 	};
-} 
+}

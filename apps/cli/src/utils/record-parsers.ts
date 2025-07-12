@@ -34,4 +34,4 @@ export function parseSrvRecord(value: string): ParsedSrvRecord {
  */
 export function cleanSshfpRecord(value: string): string {
 	return value.replace(/[()]/g, "").replace(/\s+/g, " ").trim();
-} 
+}

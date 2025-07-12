@@ -1,5 +1,7 @@
 // Export core CLI types
 export * from "./commands.ts";
+// DNS types
+export * from "./dns.ts";
 export * from "./inwx-list.ts";
 // Export INWX-specific types
 export * from "./inwx-status.ts";
@@ -10,9 +12,6 @@ export * from "./miab-status.ts";
 export * from "./miab-test.ts";
 // Export Migration-specific types
 export * from "./migrate-dns.ts";
-
-// DNS types
-export * from "./dns.ts";
 
 // Common CLI types
 export interface BaseCommandOptions {
