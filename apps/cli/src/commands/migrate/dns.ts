@@ -1,12 +1,13 @@
 import type { Argv } from "yargs";
 import { migrateDnsRecords } from "../../actions/migrate/dns.ts";
+import type { ConflictResolutionStrategy } from "../../types/migrate-dns.ts";
 import { getInwxConnectionFromEnv, getMiabConnectionFromEnv, printEnvExample } from "../../utils/env.ts";
 
 interface DnsOptions {
 	// Migration options
 	"dry-run"?: boolean;
-	force?: boolean;
 	verbose?: boolean;
+	"conflict-resolution"?: ConflictResolutionStrategy;
 }
 
 export function dnsCommand(yargs: Argv): void {
@@ -15,15 +16,11 @@ export function dnsCommand(yargs: Argv): void {
 		describe: "Migrate DNS records from MIAB to INWX (credentials from .env file)",
 		builder: (yargs: Argv) => {
 			return yargs
-				.group(["dry-run", "force", "verbose"], "Migration Options:")
+				.group(["dry-run", "verbose"], "Migration Options:")
+				.group(["conflict-resolution"], "Conflict Resolution:")
 				.option("dry-run", {
 					type: "boolean",
 					description: "Show what would be done without making changes",
-					default: false,
-				})
-				.option("force", {
-					type: "boolean",
-					description: "Force migration even if conflicts exist",
 					default: false,
 				})
 				.option("verbose", {
@@ -31,9 +28,17 @@ export function dnsCommand(yargs: Argv): void {
 					description: "Enable verbose output",
 					default: false,
 				})
+				.option("conflict-resolution", {
+					type: "string",
+					choices: ["skip", "overwrite", "interactive"] as const,
+					description: "How to handle conflicting DNS records",
+					default: "skip" as ConflictResolutionStrategy,
+				})
 				.example("$0 migrate dns --dry-run", "Test DNS migration without making changes")
 				.example("$0 migrate dns", "Migrate DNS records from MIAB to INWX")
-				.example("$0 migrate dns --force --verbose", "Force migration with verbose output");
+				.example("$0 migrate dns --conflict-resolution=overwrite", "Overwrite conflicting records")
+				.example("$0 migrate dns --conflict-resolution=interactive", "Ask for each conflicting record")
+				.example("$0 migrate dns --verbose", "Migration with verbose output");
 		},
 		handler: async (args: unknown) => {
 			const options = args as DnsOptions;
@@ -56,7 +61,22 @@ export function dnsCommand(yargs: Argv): void {
 					}
 				}
 
-				console.log("🔧 Initializing connections...");
+				// Show conflict resolution strategy
+				const conflictStrategy = options["conflict-resolution"] || "skip";
+				console.log(`🔧 Conflict Resolution Strategy: ${conflictStrategy.toUpperCase()}`);
+				switch (conflictStrategy) {
+					case "skip":
+						console.log("   Conflicting records will be skipped (existing INWX records preserved)");
+						break;
+					case "overwrite":
+						console.log("   Conflicting records will be overwritten with MIAB values");
+						break;
+					case "interactive":
+						console.log("   You will be prompted for each conflicting record");
+						break;
+				}
+
+				console.log("\n🔧 Initializing connections...");
 				console.log(`   MIAB Server: ${miabConnection.apiUrl}`);
 				console.log(`   INWX Environment: ${inwxConnection.environment.toUpperCase()}`);
 				console.log("");
@@ -71,7 +91,7 @@ export function dnsCommand(yargs: Argv): void {
 						verbose: options.verbose,
 					},
 					dryRun: options["dry-run"],
-					force: options.force,
+					conflictResolution: conflictStrategy,
 				});
 
 				if (result.success) {
@@ -89,10 +109,14 @@ export function dnsCommand(yargs: Argv): void {
 						const totalRecords = migration.results.reduce((sum, result) => sum + result.totalRecords, 0);
 						const successfulRecords = migration.results.reduce((sum, result) => sum + result.successfulRecords, 0);
 						const failedRecords = migration.results.reduce((sum, result) => sum + result.failedRecords, 0);
+						const skippedRecords = migration.results.reduce((sum, result) => sum + result.skippedRecords, 0);
+						const updatedRecords = migration.results.reduce((sum, result) => sum + result.updatedRecords, 0);
 
 						console.log(`   Total Records: ${totalRecords}`);
 						console.log(`   Successful Records: ${successfulRecords}`);
 						console.log(`   Failed Records: ${failedRecords}`);
+						console.log(`   Skipped Records: ${skippedRecords}`);
+						console.log(`   Updated Records: ${updatedRecords}`);
 
 						const successRate = totalRecords > 0 ? Math.round((successfulRecords / totalRecords) * 100) : 0;
 						console.log(`   Overall Success Rate: ${successRate}%`);

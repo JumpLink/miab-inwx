@@ -2,12 +2,15 @@ import { MiabClient } from "@miab-inwx/miab-client";
 import { ApiClient, Language } from "domrobot-client";
 import type { CommandResult } from "../../types/index.ts";
 import type {
+	ConflictResolutionStrategy,
 	DnsRecord,
 	DnsZone,
 	MigrateDnsData,
 	MigrateDnsOptions,
 	MigrationResult,
 } from "../../types/migrate-dns.ts";
+import { resolveRecordConflict } from "../../utils/conflict-resolution.ts";
+import { findExistingInwxRecord, updateInwxRecord } from "../../utils/dns.ts";
 
 // Constants
 const INWX_SUCCESS_CODE = 1000;
@@ -46,8 +49,8 @@ interface MigrationContext {
 	failedZones: number;
 	startTime: number;
 	dryRun: boolean;
-	force: boolean;
 	verbose: boolean;
+	conflictResolution: ConflictResolutionStrategy;
 }
 
 /**
@@ -60,7 +63,7 @@ export async function migrateDnsRecords(options: MigrateDnsOptions): Promise<Com
 			return createErrorResult(validationResult.error);
 		}
 
-		const { miab, inwx, dryRun = false, force = false } = options;
+		const { miab, inwx, dryRun = false } = options;
 		const environment = inwx.environment || "ote";
 		const environmentInfo = getEnvironmentInfo(environment);
 
@@ -85,8 +88,8 @@ export async function migrateDnsRecords(options: MigrateDnsOptions): Promise<Com
 			failedZones: 0,
 			startTime: Date.now(),
 			dryRun,
-			force,
 			verbose: miab.verbose || false,
+			conflictResolution: options.conflictResolution || "skip",
 		};
 
 		const migrationResults = await executeMigration(dnsZones.data, apiConfig.data.inwx.client, migrationContext);
@@ -373,6 +376,8 @@ async function migrateZone(
 		processedRecords: 0,
 		successfulRecords: 0,
 		failedRecords: 0,
+		skippedRecords: 0,
+		updatedRecords: 0,
 		errors: [],
 		warnings: [],
 	};
@@ -649,13 +654,68 @@ async function migrateRecord(
 			return;
 		}
 
+		// Check if record already exists in INWX
+		const existingRecordResult = await findExistingInwxRecord(inwxClient, domain, record);
+		if (!existingRecordResult.success) {
+			result.failedRecords++;
+			result.errors.push(existingRecordResult.error);
+			if (context.verbose) {
+				console.error(`${zoneProgress}   ❌ ${existingRecordResult.error}`);
+			}
+			return;
+		}
+
+		const existingRecord = existingRecordResult.data;
+
+		if (existingRecord) {
+			// Record exists, handle conflict resolution
+			const conflictResolution = context.conflictResolution || "skip";
+			const action = await resolveRecordConflict(
+				record,
+				existingRecord,
+				conflictResolution,
+				zoneProgress,
+				context.verbose,
+			);
+
+			if (action === "skip") {
+				result.skippedRecords++;
+				if (context.verbose) {
+					console.log(`${zoneProgress}   ⏭️  Skipped existing record: ${record.rtype} ${record.qname}`);
+				}
+				return;
+			} else if (action === "overwrite") {
+				// Update existing record
+				const updateResult = await updateInwxRecord(inwxClient, domain, existingRecord.id, record);
+				if (updateResult.success) {
+					result.updatedRecords++;
+					result.successfulRecords++;
+					if (context.verbose) {
+						const displayValue =
+							record.rtype === "MX"
+								? `${buildRecordParams(record, domain).prio} ${buildRecordParams(record, domain).content}`
+								: record.value;
+						console.log(`${zoneProgress}   🔄 Updated ${record.rtype} record: ${record.qname} -> ${displayValue}`);
+					}
+				} else {
+					result.failedRecords++;
+					result.errors.push(updateResult.error);
+					if (context.verbose) {
+						console.error(`${zoneProgress}   ❌ Failed to update ${record.rtype} record: ${updateResult.error}`);
+					}
+				}
+				return;
+			}
+		}
+
+		// Record doesn't exist, create new one
 		const recordParams = buildRecordParams(record, domain);
 		const createResponse = await inwxClient.callApi("nameserver.createRecord", recordParams);
 
 		handleRecordCreationResponse(createResponse, record, recordParams, result, context, zoneProgress);
 	} catch (error) {
 		result.failedRecords++;
-		const errorMsg = `Error creating ${record.rtype} record ${record.qname}: ${error instanceof Error ? error.message : "Unknown error"}`;
+		const errorMsg = `Error processing ${record.rtype} record ${record.qname}: ${error instanceof Error ? error.message : "Unknown error"}`;
 		result.errors.push(errorMsg);
 		if (context.verbose) {
 			console.error(`${zoneProgress}   ❌ ${errorMsg}`);
@@ -799,7 +859,7 @@ function createMigrationResult(
 	migrationResults: MigrationResult[],
 	context: MigrationContext,
 ): CommandResult<MigrateDnsData> {
-	const { miab, inwx, dryRun, force } = options;
+	const { miab, inwx, dryRun } = options;
 
 	return {
 		success: true,
@@ -819,7 +879,6 @@ function createMigrationResult(
 			},
 			migration: {
 				dryRun: dryRun || false,
-				force: force || false,
 				results: migrationResults,
 				totalZones: context.totalZones,
 				processedZones: context.processedZones,

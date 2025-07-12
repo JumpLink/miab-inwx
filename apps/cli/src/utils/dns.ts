@@ -1,7 +1,7 @@
 import { MiabClient } from "@miab-inwx/miab-client";
 import { ApiClient, Language } from "domrobot-client";
 import type { CommandResult } from "../types/index.ts";
-import type { DnsRecord, DnsZone } from "../types/migrate-dns.ts";
+import type { DnsRecord, DnsZone, ExistingInwxRecord, RecordComparison } from "../types/migrate-dns.ts";
 
 // Constants for INWX API response codes
 export const INWX_SUCCESS_CODE = 1000;
@@ -27,6 +27,204 @@ export interface InwxConnectionConfig {
 	sharedSecret?: string;
 	environment?: "ote" | "live";
 	verbose?: boolean;
+}
+
+/**
+ * Compare two DNS records to check if they are equal
+ */
+export function compareRecords(miabRecord: DnsRecord, inwxRecord: ExistingInwxRecord): RecordComparison {
+	const differences: string[] = [];
+
+	// Normalize record names for comparison (remove trailing dots)
+	const normalizedMiabName = miabRecord.qname.replace(/\.$/, "");
+	const normalizedInwxName = inwxRecord.name.replace(/\.$/, "");
+
+	// Compare record name
+	if (normalizedMiabName !== normalizedInwxName) {
+		differences.push(`Name: MIAB="${normalizedMiabName}" vs INWX="${normalizedInwxName}"`);
+	}
+
+	// Compare record type
+	if (miabRecord.rtype !== inwxRecord.type) {
+		differences.push(`Type: MIAB="${miabRecord.rtype}" vs INWX="${inwxRecord.type}"`);
+	}
+
+	// Compare record content based on type
+	const contentComparison = compareRecordContent(miabRecord, inwxRecord);
+	if (!contentComparison.areEqual) {
+		differences.push(...contentComparison.differences);
+	}
+
+	return {
+		areEqual: differences.length === 0,
+		differences,
+	};
+}
+
+/**
+ * Compare record content based on record type
+ */
+function compareRecordContent(miabRecord: DnsRecord, inwxRecord: ExistingInwxRecord): RecordComparison {
+	const differences: string[] = [];
+
+	if (miabRecord.rtype === "MX") {
+		// Parse MX record from MIAB
+		const miabMx = parseMxRecord(miabRecord.value);
+
+		// Compare priority and content
+		if (miabMx.prio !== inwxRecord.prio) {
+			differences.push(`MX Priority: MIAB="${miabMx.prio}" vs INWX="${inwxRecord.prio}"`);
+		}
+
+		const normalizedMiabContent = miabMx.content.replace(/\.$/, "");
+		const normalizedInwxContent = inwxRecord.content.replace(/\.$/, "");
+
+		if (normalizedMiabContent !== normalizedInwxContent) {
+			differences.push(`MX Content: MIAB="${normalizedMiabContent}" vs INWX="${normalizedInwxContent}"`);
+		}
+	} else if (miabRecord.rtype === "SSHFP") {
+		// Clean SSHFP records for comparison
+		const cleanedMiabValue = cleanSshfpRecord(miabRecord.value);
+		const cleanedInwxValue = cleanSshfpRecord(inwxRecord.content);
+
+		if (cleanedMiabValue !== cleanedInwxValue) {
+			differences.push(`SSHFP Content: MIAB="${cleanedMiabValue}" vs INWX="${cleanedInwxValue}"`);
+		}
+	} else {
+		// For other record types, compare content directly
+		const normalizedMiabValue = miabRecord.value.replace(/\.$/, "");
+		const normalizedInwxValue = inwxRecord.content.replace(/\.$/, "");
+
+		if (normalizedMiabValue !== normalizedInwxValue) {
+			differences.push(`Content: MIAB="${normalizedMiabValue}" vs INWX="${normalizedInwxValue}"`);
+		}
+	}
+
+	return {
+		areEqual: differences.length === 0,
+		differences,
+	};
+}
+
+/**
+ * Parse MX record value
+ */
+function parseMxRecord(value: string): { prio: number; content: string } {
+	const mxParts = value.trim().split(/\s+/);
+	if (mxParts.length >= 2) {
+		const priority = parseInt(mxParts[0], 10);
+		const content = mxParts.slice(1).join(" ");
+		return { prio: priority, content };
+	}
+	return { prio: 10, content: value };
+}
+
+/**
+ * Clean SSHFP record value
+ */
+function cleanSshfpRecord(value: string): string {
+	return value.replace(/[()]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Find existing INWX record that matches the MIAB record
+ */
+export async function findExistingInwxRecord(
+	client: ApiClient,
+	domain: string,
+	miabRecord: DnsRecord,
+): Promise<CommandResult<ExistingInwxRecord | null>> {
+	try {
+		const recordsResponse = await client.callApi("nameserver.info", { domain });
+
+		if (recordsResponse.code !== INWX_SUCCESS_CODE) {
+			if (recordsResponse.code === INWX_ZONE_NOT_FOUND_CODE) {
+				// Zone doesn't exist, so no existing records
+				return { success: true, data: null };
+			}
+			return {
+				success: false,
+				error: `Failed to fetch records for ${domain} (Code: ${recordsResponse.code}): ${recordsResponse.msg}`,
+			};
+		}
+
+		const records = recordsResponse.resData?.record || [];
+
+		// Normalize MIAB record name for comparison
+		const normalizedMiabName = miabRecord.qname.replace(/\.$/, "");
+
+		// Find matching record by name and type
+		for (const record of records) {
+			if (record && typeof record === "object") {
+				const normalizedInwxName = (record.name || "").replace(/\.$/, "");
+
+				if (normalizedInwxName === normalizedMiabName && record.type === miabRecord.rtype) {
+					return {
+						success: true,
+						data: {
+							id: record.id || "",
+							name: record.name || "",
+							type: record.type || "",
+							content: record.content || "",
+							ttl: record.ttl ? parseInt(record.ttl, 10) : undefined,
+							prio: record.prio ? parseInt(record.prio, 10) : undefined,
+						},
+					};
+				}
+			}
+		}
+
+		// No matching record found
+		return { success: true, data: null };
+	} catch (error) {
+		return {
+			success: false,
+			error: `Error finding existing record: ${error instanceof Error ? error.message : "Unknown error"}`,
+		};
+	}
+}
+
+/**
+ * Update an existing INWX DNS record
+ */
+export async function updateInwxRecord(
+	client: ApiClient,
+	_domain: string,
+	recordId: string,
+	miabRecord: DnsRecord,
+): Promise<CommandResult<void>> {
+	try {
+		const updateParams: Record<string, unknown> = {
+			id: recordId,
+		};
+
+		// Build update parameters based on record type
+		if (miabRecord.rtype === "MX") {
+			const { prio, content } = parseMxRecord(miabRecord.value);
+			updateParams.prio = prio;
+			updateParams.content = content;
+		} else if (miabRecord.rtype === "SSHFP") {
+			updateParams.content = cleanSshfpRecord(miabRecord.value);
+		} else {
+			updateParams.content = miabRecord.value;
+		}
+
+		const updateResponse = await client.callApi("nameserver.updateRecord", updateParams);
+
+		if (updateResponse.code !== INWX_SUCCESS_CODE) {
+			return {
+				success: false,
+				error: `Failed to update record (Code: ${updateResponse.code}): ${updateResponse.msg}`,
+			};
+		}
+
+		return { success: true };
+	} catch (error) {
+		return {
+			success: false,
+			error: `Error updating record: ${error instanceof Error ? error.message : "Unknown error"}`,
+		};
+	}
 }
 
 /**

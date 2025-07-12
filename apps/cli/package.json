@@ -13,6 +13,7 @@
 	},
 	"dependencies": {
 		"@dotenvx/dotenvx": "^1.47.4",
+		"@inquirer/prompts": "^7.6.0",
 		"@miab-inwx/inwx-client": "workspace:*",
 		"@miab-inwx/miab-client": "workspace:*",
 		"domrobot-client": "^3.3.0",
