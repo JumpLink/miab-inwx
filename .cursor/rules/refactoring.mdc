@@ -24,12 +24,20 @@ Follow [clean-code.mdc](mdc:.cursor/rules/clean-code.mdc), [typescript-best-prac
 6. **Data Clumps**: Group related parameters into objects/types
 7. **Long Parameter Lists**: Use configuration objects for 3+ parameters
 8. **Implementation in Index Files**: Extract code from `index.ts` files
+9. **Misplaced Utilities**: Move utility functions to the `utils/` folder
+10. **Scattered Types**: Move types and interfaces to the `types/` folder
 
 ## SOLID Principles Application
 - **Single Responsibility**: Each unit has one reason to change
 - **Open/Closed**: Open for extension, closed for modification
 - **Interface Segregation**: Many specific interfaces over few general ones
 - **Dependency Inversion**: Depend on abstractions, not concretions
+
+## File Organization Standards
+- **Utils Folder**: All utility functions, helpers, and reusable logic belong in `utils/`
+- **Types Folder**: All type definitions, interfaces, and type utilities belong in `types/`
+- **Separation of Concerns**: Keep business logic separate from utilities and type definitions
+- **Consistent Structure**: Maintain consistent folder structure across the project
 
 ## Refactoring Process
 
@@ -38,6 +46,7 @@ Follow [clean-code.mdc](mdc:.cursor/rules/clean-code.mdc), [typescript-best-prac
 - Map dependencies and coupling between modules
 - Check for `any` types, missing generics, loose typing
 - Audit `index.ts` files for implementation code
+- Identify misplaced utilities and type definitions
 
 ### 2. Implementation  
 - Ensure test coverage before refactoring
@@ -45,20 +54,24 @@ Follow [clean-code.mdc](mdc:.cursor/rules/clean-code.mdc), [typescript-best-prac
 - Extract complex logic into well-named functions
 - Strengthen type definitions and eliminate `any` usage
 - Extract implementation code from `index.ts` files
+- Move utility functions to `utils/` folder
+- Move type definitions to `types/` folder
 
 ### 3. Validation
 - Run tests to ensure functionality is preserved
 - Verify TypeScript compilation passes without errors
 - Validate improved readability and maintainability
+- Confirm proper file organization and imports
 
 ## Quality Checklist
 **Before:** Tests pass, code compiles, dependencies mapped  
-**During:** Minimal focused changes, maintain functionality, strengthen types  
-**After:** Tests pass, strict mode compliance, improved readability, clean `index.ts` files
+**During:** Minimal focused changes, maintain functionality, strengthen types, organize files properly  
+**After:** Tests pass, strict mode compliance, improved readability, clean `index.ts` files, proper file organization
 
 ## Legacy Code Integration
 **Migration:** Use `allowJs: true`, start with leaf modules, add types bottom-up, minimize `@ts-ignore`  
-**Modernization:** Replace `var` with `const`/`let`, use async/await, adopt ES6+ features, use modern array methods
+**Modernization:** Replace `var` with `const`/`let`, use async/await, adopt ES6+ features, use modern array methods  
+**Organization:** Move scattered utilities to `utils/`, consolidate types in `types/`
 
 ## Technical Debt Management
-Document issues with TODO context, prioritize by business impact, balance features with quality
+Document issues with TODO context, prioritize by business impact, balance features with quality, maintain proper file organization

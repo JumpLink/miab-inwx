@@ -11,6 +11,9 @@ export * from "./miab-test.ts";
 // Export Migration-specific types
 export * from "./migrate-dns.ts";
 
+// DNS types
+export * from "./dns.ts";
+
 // Common CLI types
 export interface BaseCommandOptions {
 	verbose?: boolean;

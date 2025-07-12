@@ -5,7 +5,7 @@ import type {
 	ExistingInwxRecord,
 	RecordComparison,
 } from "../types/migrate-dns.ts";
-import { compareRecords } from "./dns.ts";
+import { compareRecords } from "./record-comparers.ts";
 
 /**
  * Action to take for a conflicting record
