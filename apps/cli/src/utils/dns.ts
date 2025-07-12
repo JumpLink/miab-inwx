@@ -159,18 +159,42 @@ export async function findExistingInwxRecord(
 				const normalizedInwxName = (record.name || "").replace(/\.$/, "");
 
 				if (normalizedInwxName === normalizedMiabName && record.type === miabRecord.rtype) {
-					return {
-						success: true,
-						data: {
-							id: record.id || "",
-							name: record.name || "",
-							type: record.type || "",
-							content: record.content || "",
-							ttl: record.ttl !== undefined ? parseInt(record.ttl, 10) : undefined,
-							// Only set priority for record types that actually use it
-							prio: record.type === "MX" && record.prio !== undefined ? parseInt(record.prio, 10) : undefined,
-						},
-					};
+					// For record types that can have multiple instances (like SSHFP),
+					// also match by content to find the exact record
+					if (miabRecord.rtype === "SSHFP") {
+						const cleanedMiabContent = cleanSshfpRecord(miabRecord.value);
+						const cleanedInwxContent = cleanSshfpRecord(record.content || "");
+
+						// Only return this record if content also matches
+						if (cleanedMiabContent === cleanedInwxContent) {
+							return {
+								success: true,
+								data: {
+									id: record.id || "",
+									name: record.name || "",
+									type: record.type || "",
+									content: record.content || "",
+									ttl: record.ttl !== undefined ? parseInt(record.ttl, 10) : undefined,
+									// Only set priority for record types that actually use it
+									prio: record.type === "MX" && record.prio !== undefined ? parseInt(record.prio, 10) : undefined,
+								},
+							};
+						}
+					} else {
+						// For other record types, name + type matching is sufficient
+						return {
+							success: true,
+							data: {
+								id: record.id || "",
+								name: record.name || "",
+								type: record.type || "",
+								content: record.content || "",
+								ttl: record.ttl !== undefined ? parseInt(record.ttl, 10) : undefined,
+								// Only set priority for record types that actually use it
+								prio: record.type === "MX" && record.prio !== undefined ? parseInt(record.prio, 10) : undefined,
+							},
+						};
+					}
 				}
 			}
 		}
