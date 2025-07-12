@@ -221,7 +221,24 @@ export async function findExistingInwxRecord(
 	miabRecord: DnsRecord,
 ): Promise<CommandResult<ExistingInwxRecord | null>> {
 	try {
-		const recordsResponse = await client.callApi("nameserver.info", { domain });
+		let recordsResponse: { code: number; msg: string; resData?: { record?: any[] } };
+		try {
+			recordsResponse = await client.callApi("nameserver.info", { domain });
+		} catch (apiError) {
+			// Handle JSON parsing errors and other API errors
+			const errorMessage = apiError instanceof Error ? apiError.message : "Unknown API error";
+
+			if (errorMessage.includes("Unexpected end of JSON input") || errorMessage.includes("JSON")) {
+				// JSON parsing error - likely empty response from INWX
+				return {
+					success: false,
+					error: `INWX API returned invalid JSON when fetching records for ${domain}. This might be a temporary API issue.`,
+				};
+			}
+
+			// Re-throw other errors to be handled by the outer catch block
+			throw apiError;
+		}
 
 		if (recordsResponse.code !== INWX_SUCCESS_CODE) {
 			if (recordsResponse.code === INWX_ZONE_NOT_FOUND_CODE) {

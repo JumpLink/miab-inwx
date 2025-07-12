@@ -762,7 +762,40 @@ async function migrateRecord(
 
 		// Record doesn't exist, create new one
 		const recordParams = buildRecordParams(record, domain);
-		const createResponse = await inwxClient.callApi("nameserver.createRecord", recordParams);
+
+		// Add debug logging for SRV records
+		if (context.verbose && record.rtype === "SRV") {
+			console.log(`${zoneProgress}   🔍 Creating SRV record with params:`, JSON.stringify(recordParams, null, 2));
+		}
+
+		let createResponse: { code: number; msg: string };
+		try {
+			createResponse = await inwxClient.callApi("nameserver.createRecord", recordParams);
+		} catch (apiError) {
+			// Handle JSON parsing errors and other API errors
+			const errorMessage = apiError instanceof Error ? apiError.message : "Unknown API error";
+
+			if (errorMessage.includes("Unexpected end of JSON input") || errorMessage.includes("JSON")) {
+				// JSON parsing error - likely empty response from INWX
+				result.failedRecords++;
+				result.errors.push(
+					`INWX API returned invalid JSON for ${record.rtype} record ${record.qname}. This might be a temporary API issue.`,
+				);
+				if (context.verbose) {
+					console.error(
+						`${zoneProgress}   ❌ JSON parsing error for ${record.rtype} record ${record.qname}: ${errorMessage}`,
+					);
+					console.error(
+						`${zoneProgress}   📝 Record params that caused the error:`,
+						JSON.stringify(recordParams, null, 2),
+					);
+				}
+				return;
+			}
+
+			// Re-throw other errors to be handled by the outer catch block
+			throw apiError;
+		}
 
 		handleRecordCreationResponse(createResponse, record, recordParams, result, context, zoneProgress);
 	} catch (error) {
