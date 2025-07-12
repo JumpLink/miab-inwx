@@ -1,8 +1,10 @@
 // Export core CLI types
 export * from "./commands.ts";
+export * from "./inwx-list.ts";
 // Export INWX-specific types
 export * from "./inwx-status.ts";
 export * from "./inwx-test.ts";
+export * from "./miab-list.ts";
 // Export MIAB-specific types
 export * from "./miab-status.ts";
 export * from "./miab-test.ts";

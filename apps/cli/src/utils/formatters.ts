@@ -1,4 +1,5 @@
 import type { SystemStatusResponse } from "@miab-inwx/miab-client";
+import type { DnsZone } from "../types/migrate-dns.ts";
 
 /**
  * Format system status for console output
@@ -100,6 +101,78 @@ export function formatConnectionDetails(data: ConnectionDetails): string {
 	}
 	lines.push(`  Authenticated: ${data.authenticated ? "Yes" : "No"}`);
 	lines.push(`  Timestamp: ${data.timestamp}`);
+
+	return lines.join("\n");
+}
+
+/**
+ * Format DNS zones and records for output
+ */
+export function formatDnsOutput(zones: DnsZone[], format: "table" | "yaml"): string {
+	if (format === "yaml") {
+		return formatDnsAsYaml(zones);
+	}
+
+	return formatDnsAsTable(zones);
+}
+
+/**
+ * Format DNS data as table
+ */
+function formatDnsAsTable(zones: DnsZone[]): string {
+	const lines: string[] = [];
+
+	for (const zone of zones) {
+		if (zone.records.length === 0) continue;
+
+		// Add some spacing between zones if not the first one
+		if (lines.length > 0) {
+			lines.push("");
+		}
+
+		// Table header
+		lines.push("┌─────────────────────────────────────────────────────────────────────────────────────┐");
+		lines.push("│ Name                    │ Type │ Value                              │ TTL/Note    │");
+		lines.push("├─────────────────────────────────────────────────────────────────────────────────────┤");
+
+		// Table rows
+		for (const record of zone.records) {
+			const name = record.qname.length > 23 ? `${record.qname.substring(0, 20)}...` : record.qname;
+			const type = record.rtype.length > 4 ? record.rtype.substring(0, 4) : record.rtype;
+			const value = record.value.length > 34 ? `${record.value.substring(0, 31)}...` : record.value;
+			const explanation =
+				record.explanation?.length > 11 ? `${record.explanation.substring(0, 8)}...` : record.explanation || "";
+
+			lines.push(`│ ${name.padEnd(23)} │ ${type.padEnd(4)} │ ${value.padEnd(34)} │ ${explanation.padEnd(11)} │`);
+		}
+
+		lines.push("└─────────────────────────────────────────────────────────────────────────────────────┘");
+	}
+
+	return lines.join("\n");
+}
+
+/**
+ * Format DNS data as YAML
+ */
+function formatDnsAsYaml(zones: DnsZone[]): string {
+	const lines: string[] = [];
+
+	lines.push("zones:");
+
+	for (const zone of zones) {
+		lines.push(`  - domain: "${zone.domain}"`);
+		lines.push("    records:");
+
+		for (const record of zone.records) {
+			lines.push(`      - name: "${record.qname}"`);
+			lines.push(`        type: "${record.rtype}"`);
+			lines.push(`        value: "${record.value}"`);
+			if (record.explanation) {
+				lines.push(`        note: "${record.explanation}"`);
+			}
+		}
+	}
 
 	return lines.join("\n");
 }
