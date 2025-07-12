@@ -4,6 +4,7 @@ import { getInwxConnectionFromEnv, printEnvExample } from "../../utils/env.ts";
 
 interface StatusOptions {
 	verbose?: boolean;
+	environment?: "ote" | "live";
 }
 
 export function statusCommand(yargs: Argv): void {
@@ -17,50 +18,41 @@ export function statusCommand(yargs: Argv): void {
 					description: "Enable verbose output",
 					default: false,
 				})
-				.example("$0 inwx status", "Check INWX account status")
-				.example("$0 inwx status --verbose", "Check INWX account status with verbose output");
+				.option("environment", {
+					type: "string",
+					choices: ["ote", "live"] as const,
+					description: "INWX environment to use",
+					default: "ote",
+				})
+				.example("$0 inwx status", "Check INWX account status (OTE environment)")
+				.example("$0 inwx status --environment live", "Check INWX account status (Live environment)")
+				.example("$0 inwx status --verbose", "Check INWX account status with verbose output")
+				.example("$0 inwx status --environment live --verbose", "Check Live environment with verbose output");
 		},
 		handler: async (args: unknown) => {
 			const statusOptions = args as StatusOptions;
 
 			try {
-				const connectionOptions = getInwxConnectionFromEnv();
-				const result = await getInwxStatus({
-					...connectionOptions,
-					verbose: statusOptions.verbose,
-				});
+				const connectionOptions = getInwxConnectionFromEnv(
+					statusOptions.environment || "ote",
+					statusOptions.verbose || false
+				);
+				const result = await getInwxStatus(connectionOptions);
 
 				if (result.success) {
 					console.log(`✅ ${result.message}`);
 
-					if (result.data?.accountInfo?.resData) {
-						const accountData = result.data.accountInfo.resData;
-						console.log("\nAccount Information:");
+					if (result.data) {
+						console.log(`\n📊 Account Information:`);
+						console.log(`  Username: ${result.data.username}`);
+						console.log(`  Environment: INWX ${result.data.environment.toUpperCase()}`);
+						console.log(`  API URL: ${result.data.apiUrl}`);
 
-						console.log(`  Account ID: ${accountData.accountId || "N/A"}`);
-						console.log(`  Customer ID: ${accountData.customerId || "N/A"}`);
-						console.log(`  Customer No: ${accountData.customerNo || "N/A"}`);
-						console.log(`  Username: ${accountData.username || "N/A"}`);
-						console.log(
-							`  Name: ${accountData.title || ""} ${accountData.firstname || ""} ${accountData.lastname || ""}`,
-						);
-						console.log(`  Organization: ${accountData.org || "N/A"}`);
-						console.log(`  Email: ${accountData.email || "N/A"}`);
-						console.log(`  Country: ${accountData.cc || "N/A"}`);
-						console.log(`  Payment Type: ${accountData.paymentType || "N/A"}`);
-						console.log(`  Currency: ${accountData.currency || "N/A"}`);
-						console.log(`  Verification Level: ${accountData.verification || "N/A"}`);
-						console.log(`  2FA Enabled: ${accountData.tfa === "0" ? "No" : "Yes"}`);
-						console.log(`  Is Reseller: ${accountData.isReseller || "N/A"}`);
-						console.log(`  Renewal Mode: ${accountData.renewalMode || "N/A"}`);
-						console.log(`  Login Count: ${accountData.loginCount || "N/A"}`);
-
-						if (accountData.lastLogin?.scalar) {
-							console.log(`  Last Login: ${accountData.lastLogin.scalar}`);
-						}
-
-						if (accountData.crDate?.scalar) {
-							console.log(`  Account Created: ${accountData.crDate.scalar}`);
+						if (result.data.accountInfo.resData) {
+							const accountData = result.data.accountInfo.resData;
+							console.log(`  Payment Type: ${accountData.paymentType || "N/A"}`);
+							console.log(`  Verification Level: ${accountData.verification || "N/A"}`);
+							console.log(`  Premium Disabled: ${accountData.disablePremium ? "Yes" : "No"}`);
 						}
 					}
 

@@ -7,9 +7,9 @@ interface TestOptions {
 }
 
 export function testCommand(yargs: Argv): void {
-	yargs.command<TestOptions>({
+	yargs.command({
 		command: "test",
-		describe: "Test the connection to the Mail-in-a-Box server (credentials from .env file)",
+		describe: "Test the connection to the MIAB server (credentials from .env file)",
 		builder: (yargs: Argv) => {
 			return yargs
 				.option("verbose", {
@@ -20,19 +20,18 @@ export function testCommand(yargs: Argv): void {
 				.example("$0 miab test", "Test MIAB server connection")
 				.example("$0 miab test --verbose", "Test MIAB server connection with verbose output");
 		},
-		handler: async (args: TestOptions) => {
+		handler: async (args: unknown) => {
+			const testOptions = args as TestOptions;
+
 			try {
-				const connectionOptions = getMiabConnectionFromEnv();
-				const result = await testMiabConnection({
-					...connectionOptions,
-					verbose: args.verbose,
-				});
+				const connectionOptions = getMiabConnectionFromEnv(testOptions.verbose || false);
+				const result = await testMiabConnection(connectionOptions);
 
 				if (result.success) {
 					console.log(`✅ ${result.message}`);
-					if (args.verbose && result.data) {
+					if (testOptions.verbose && result.data) {
 						console.log("Connection Details:");
-						console.log(`  Server URL: ${result.data.baseUrl}`);
+						console.log(`  Base URL: ${result.data.baseUrl}`);
 						console.log(`  Version: ${result.data.version}`);
 						console.log(`  Authenticated: ${result.data.authenticated}`);
 						console.log(`  Timestamp: ${result.data.timestamp}`);

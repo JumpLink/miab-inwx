@@ -5,6 +5,7 @@ import { formatDnsOutput } from "../../utils/formatters.ts";
 
 interface ListOptions {
 	verbose?: boolean;
+	environment?: "ote" | "live";
 	format?: "table" | "json" | "yaml";
 	filter?: string;
 	zone?: string;
@@ -13,7 +14,7 @@ interface ListOptions {
 export function listCommand(yargs: Argv): void {
 	yargs.command({
 		command: "list",
-		describe: "List all DNS records from INWX (credentials from .env file)",
+		describe: "List DNS records from INWX (credentials from .env file)",
 		builder: (yargs: Argv) => {
 			return yargs
 				.option("verbose", {
@@ -21,34 +22,43 @@ export function listCommand(yargs: Argv): void {
 					description: "Enable verbose output",
 					default: false,
 				})
+				.option("environment", {
+					type: "string",
+					choices: ["ote", "live"] as const,
+					description: "INWX environment to use",
+					default: "ote",
+				})
 				.option("format", {
 					type: "string",
-					choices: ["table", "json", "yaml"],
+					choices: ["table", "json", "yaml"] as const,
 					description: "Output format",
 					default: "table",
 				})
 				.option("filter", {
 					type: "string",
-					description: "Filter records by text (searches in all fields)",
+					description: "Filter records by type (e.g., 'A', 'CNAME', 'MX')",
 				})
 				.option("zone", {
 					type: "string",
 					description: "Filter by specific zone/domain",
 				})
-				.example("$0 inwx list", "List all DNS records in table format")
-				.example("$0 inwx list --format json", "List DNS records in JSON format")
-				.example("$0 inwx list --zone example.com", "List records for specific zone")
-				.example("$0 inwx list --filter mail", "Filter records containing 'mail'")
+				.example("$0 inwx list", "List all DNS records (OTE environment)")
+				.example("$0 inwx list --environment live", "List DNS records from Live environment")
+				.example("$0 inwx list --format json", "Output in JSON format")
+				.example("$0 inwx list --filter A", "Show only A records")
+				.example("$0 inwx list --zone example.com", "Show records for specific zone")
 				.example("$0 inwx list --verbose --format yaml", "Verbose output in YAML format");
 		},
 		handler: async (args: unknown) => {
 			const listOptions = args as ListOptions;
 
 			try {
-				const connectionOptions = getInwxConnectionFromEnv();
+				const connectionOptions = getInwxConnectionFromEnv(
+					listOptions.environment || "ote",
+					listOptions.verbose || false
+				);
 				const result = await listInwxDns({
 					...connectionOptions,
-					verbose: listOptions.verbose,
 					format: listOptions.format,
 					filter: listOptions.filter,
 					zone: listOptions.zone,

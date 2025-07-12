@@ -23,16 +23,10 @@ interface EnvConfig {
 	INWX_LIVE_PASSWORD?: string;
 	INWX_LIVE_SHARED_SECRET?: string;
 
-	// INWX environment selection
-	INWX_ENVIRONMENT?: "ote" | "live";
-
 	// Legacy INWX configuration (for backwards compatibility)
 	INWX_USERNAME?: string;
 	INWX_PASSWORD?: string;
 	INWX_SHARED_SECRET?: string;
-
-	// General configuration
-	VERBOSE?: string;
 }
 
 /**
@@ -71,12 +65,10 @@ export function loadEnvConfig(): EnvConfig {
 		INWX_LIVE_USERNAME: process.env.INWX_LIVE_USERNAME,
 		INWX_LIVE_PASSWORD: process.env.INWX_LIVE_PASSWORD,
 		INWX_LIVE_SHARED_SECRET: process.env.INWX_LIVE_SHARED_SECRET,
-		INWX_ENVIRONMENT: process.env.INWX_ENVIRONMENT as "ote" | "live",
 		// Legacy support
 		INWX_USERNAME: process.env.INWX_USERNAME,
 		INWX_PASSWORD: process.env.INWX_PASSWORD,
 		INWX_SHARED_SECRET: process.env.INWX_SHARED_SECRET,
-		VERBOSE: process.env.VERBOSE,
 	};
 }
 
@@ -111,7 +103,6 @@ export function debugEnvConfig() {
 	console.log(`  MIAB_PASSWORD: ${env.MIAB_PASSWORD ? "✅ Set" : "❌ Missing"}`);
 	console.log("");
 	console.log("🌐 INWX Configuration:");
-	console.log(`  INWX_ENVIRONMENT: ${env.INWX_ENVIRONMENT || "ote"}`);
 	console.log("");
 	console.log("  OTE Credentials:");
 	console.log(`    INWX_OTE_USERNAME: ${env.INWX_OTE_USERNAME ? "✅ Set" : "❌ Missing"}`);
@@ -127,14 +118,12 @@ export function debugEnvConfig() {
 	console.log(`    INWX_USERNAME: ${env.INWX_USERNAME ? "✅ Set" : "❌ Missing"}`);
 	console.log(`    INWX_PASSWORD: ${env.INWX_PASSWORD ? "✅ Set" : "❌ Missing"}`);
 	console.log(`    INWX_SHARED_SECRET: ${env.INWX_SHARED_SECRET ? "✅ Set" : "❌ Missing"}`);
-	console.log("");
-	console.log(`  VERBOSE: ${env.VERBOSE || "false"}`);
 }
 
 /**
  * Get MIAB connection options from environment
  */
-export function getMiabConnectionFromEnv() {
+export function getMiabConnectionFromEnv(verbose = false) {
 	const env = loadEnvConfig();
 
 	if (!env.MIAB_URL || !env.MIAB_USERNAME || !env.MIAB_PASSWORD) {
@@ -145,16 +134,15 @@ export function getMiabConnectionFromEnv() {
 		apiUrl: env.MIAB_URL,
 		email: env.MIAB_USERNAME,
 		password: env.MIAB_PASSWORD,
-		verbose: env.VERBOSE === "true",
+		verbose,
 	};
 }
 
 /**
- * Get INWX connection options from environment based on selected environment
+ * Get INWX connection options from environment based on specified environment
  */
-export function getInwxConnectionFromEnv() {
+export function getInwxConnectionFromEnv(environment: "ote" | "live" = "ote", verbose = false) {
 	const env = loadEnvConfig();
-	const environment = env.INWX_ENVIRONMENT || "ote";
 
 	let username: string | undefined;
 	let password: string | undefined;
@@ -192,14 +180,14 @@ export function getInwxConnectionFromEnv() {
 		password,
 		sharedSecret,
 		environment,
-		verbose: env.VERBOSE === "true",
+		verbose,
 	};
 }
 
 /**
  * Validate that all required environment variables are set
  */
-export function validateEnvironment(requireMiab = false, requireInwx = false) {
+export function validateEnvironment(requireMiab = false, requireInwx = false, inwxEnvironment: "ote" | "live" = "ote") {
 	const env = loadEnvConfig();
 	const missing: string[] = [];
 
@@ -210,13 +198,12 @@ export function validateEnvironment(requireMiab = false, requireInwx = false) {
 	}
 
 	if (requireInwx) {
-		const environment = env.INWX_ENVIRONMENT || "ote";
-		const envPrefix = environment === "ote" ? "INWX_OTE_" : "INWX_LIVE_";
+		const envPrefix = inwxEnvironment === "ote" ? "INWX_OTE_" : "INWX_LIVE_";
 		
 		let username: string | undefined;
 		let password: string | undefined;
 
-		if (environment === "ote") {
+		if (inwxEnvironment === "ote") {
 			username = env.INWX_OTE_USERNAME;
 			password = env.INWX_OTE_PASSWORD;
 		} else {
@@ -260,12 +247,6 @@ export function printEnvExample() {
 	console.log("INWX_LIVE_PASSWORD=your-inwx-live-password");
 	console.log("INWX_LIVE_SHARED_SECRET=your-2fa-secret-for-live");
 	console.log("");
-	console.log("# INWX Environment Selection");
-	console.log("INWX_ENVIRONMENT=ote");
-	console.log("");
-	console.log("# General Configuration");
-	console.log("VERBOSE=false");
-	console.log("");
 	console.log("Save this as .env in your project root directory.");
-	console.log("The INWX_ENVIRONMENT variable determines which credentials are used.");
+	console.log("Use CLI arguments to specify environment (--environment ote|live) and verbosity (--verbose).");
 }

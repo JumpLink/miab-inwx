@@ -4,6 +4,7 @@ import { getInwxConnectionFromEnv, printEnvExample } from "../../utils/env.ts";
 
 interface TestOptions {
 	verbose?: boolean;
+	environment?: "ote" | "live";
 }
 
 export function testCommand(yargs: Argv): void {
@@ -17,18 +18,26 @@ export function testCommand(yargs: Argv): void {
 					description: "Enable verbose output",
 					default: false,
 				})
-				.example("$0 inwx test", "Test INWX connection")
-				.example("$0 inwx test --verbose", "Test INWX connection with verbose output");
+				.option("environment", {
+					type: "string",
+					choices: ["ote", "live"] as const,
+					description: "INWX environment to use",
+					default: "ote",
+				})
+				.example("$0 inwx test", "Test INWX connection (OTE environment)")
+				.example("$0 inwx test --environment live", "Test INWX connection (Live environment)")
+				.example("$0 inwx test --verbose", "Test INWX connection with verbose output")
+				.example("$0 inwx test --environment live --verbose", "Test Live environment with verbose output");
 		},
 		handler: async (args: unknown) => {
 			const testOptions = args as TestOptions;
 
 			try {
-				const connectionOptions = getInwxConnectionFromEnv();
-				const result = await testInwxConnection({
-					...connectionOptions,
-					verbose: testOptions.verbose,
-				});
+				const connectionOptions = getInwxConnectionFromEnv(
+					testOptions.environment || "ote",
+					testOptions.verbose || false
+				);
+				const result = await testInwxConnection(connectionOptions);
 
 				if (result.success) {
 					console.log(`✅ ${result.message}`);

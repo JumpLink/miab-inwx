@@ -16,20 +16,37 @@ export function debugCommand(yargs: Argv): void {
 					type: "boolean",
 					description: "List all domains in the INWX account",
 				})
+				.option("environment", {
+					type: "string",
+					choices: ["ote", "live"] as const,
+					description: "INWX environment to use for testing",
+					default: "ote",
+				})
+				.option("verbose", {
+					type: "boolean",
+					description: "Enable verbose output",
+					default: false,
+				})
 				.example("$0 debug", "Show environment configuration")
 				.example("$0 debug --test-zone test.example.com", "Test DNS zone creation")
-				.example("$0 debug --list-domains", "List all domains in INWX account");
+				.example("$0 debug --list-domains", "List all domains in INWX account")
+				.example("$0 debug --environment live --verbose", "Debug with Live environment and verbose output");
 		},
 		handler: async (args: unknown) => {
-			const options = args as { "test-zone"?: string; "list-domains"?: boolean };
+			const options = args as { 
+				"test-zone"?: string; 
+				"list-domains"?: boolean; 
+				environment?: "ote" | "live";
+				verbose?: boolean;
+			};
 
 			if (options["test-zone"]) {
-				await testZoneCreation(options["test-zone"]);
+				await testZoneCreation(options["test-zone"], options.environment || "ote", options.verbose || false);
 				return;
 			}
 
 			if (options["list-domains"]) {
-				await listDomains();
+				await listDomains(options.environment || "ote", options.verbose || false);
 				return;
 			}
 
@@ -45,7 +62,7 @@ export function debugCommand(yargs: Argv): void {
 
 				console.log("🔧 MIAB Configuration:");
 				try {
-					const miabConnection = getMiabConnectionFromEnv();
+					const miabConnection = getMiabConnectionFromEnv(options.verbose || false);
 					console.log(`   ✅ MIAB_URL: ${miabConnection.apiUrl}`);
 					console.log(`   ✅ MIAB_USERNAME: ${miabConnection.email}`);
 					console.log(`   ✅ MIAB_PASSWORD: ${miabConnection.password ? "[SET]" : "[NOT SET]"}`);
@@ -54,23 +71,24 @@ export function debugCommand(yargs: Argv): void {
 				}
 
 				console.log("\n🌐 INWX Configuration:");
+				const environment = options.environment || "ote";
 				try {
-					const inwxConnection = getInwxConnectionFromEnv();
+					const inwxConnection = getInwxConnectionFromEnv(environment, options.verbose || false);
 					console.log(`   ✅ INWX_USERNAME: ${inwxConnection.username}`);
 					console.log(`   ✅ INWX_PASSWORD: ${inwxConnection.password ? "[SET]" : "[NOT SET]"}`);
 					console.log(`   ✅ INWX_SHARED_SECRET: ${inwxConnection.sharedSecret ? "[SET]" : "[NOT SET]"}`);
-					console.log(`   ✅ INWX_ENVIRONMENT: ${inwxConnection.environment}`);
+					console.log(`   ✅ INWX_ENVIRONMENT: ${inwxConnection.environment} (from CLI: ${environment})`);
 				} catch (error) {
 					console.log(`   ❌ INWX Configuration Error: ${error instanceof Error ? error.message : "Unknown error"}`);
 				}
 
 				console.log("\n⚙️  General Configuration:");
-				console.log(`   VERBOSE: ${process.env.VERBOSE || "false"}`);
+				console.log(`   VERBOSE: ${options.verbose ? "enabled" : "disabled"} (CLI argument)`);
 				console.log(`   NODE_ENV: ${process.env.NODE_ENV || "development"}`);
 
 				console.log("\n📋 All Environment Variables:");
 				const envVars = Object.entries(process.env)
-					.filter(([key]) => key.startsWith("MIAB_") || key.startsWith("INWX_") || key === "VERBOSE")
+					.filter(([key]) => key.startsWith("MIAB_") || key.startsWith("INWX_"))
 					.map(
 						([key, value]) =>
 							`   ${key}: ${value?.length ? (key.includes("PASSWORD") || key.includes("SECRET") ? "[SET]" : value) : "[NOT SET]"}`,
@@ -81,6 +99,10 @@ export function debugCommand(yargs: Argv): void {
 				} else {
 					console.log("   No relevant environment variables found");
 				}
+
+				console.log("\n💡 Note: VERBOSE and INWX_ENVIRONMENT are now CLI-only options:");
+				console.log("   Use --verbose for detailed output");
+				console.log("   Use --environment ote|live to select INWX environment");
 			} catch (error) {
 				console.error(`❌ ${error instanceof Error ? error.message : String(error)}`);
 				console.log("\n💡 Make sure you have a .env file with the required credentials:");
@@ -90,17 +112,16 @@ export function debugCommand(yargs: Argv): void {
 	});
 }
 
-async function testZoneCreation(domain: string): Promise<void> {
+async function testZoneCreation(domain: string, environment: "ote" | "live", verbose: boolean): Promise<void> {
 	console.log(`🧪 Testing DNS zone creation for: ${domain}\n`);
 
 	try {
-		const inwxConnection = getInwxConnectionFromEnv();
-		const isOte = (inwxConnection.environment || "ote") === "ote";
-		const inwxApiUrl = isOte ? ApiClient.API_URL_OTE : ApiClient.API_URL_LIVE;
+		const inwxConnection = getInwxConnectionFromEnv(environment, verbose);
+		const isOte = environment === "ote";
 
 		console.log(`🔧 Connecting to INWX ${isOte ? "OTE (Test)" : "Live"} environment...`);
 
-		const inwxApiClient = new ApiClient(inwxApiUrl, Language.EN, true);
+		const inwxApiClient = new ApiClient(inwxConnection.environment === "ote" ? ApiClient.API_URL_OTE : ApiClient.API_URL_LIVE, Language.EN, verbose);
 
 		// Login
 		console.log("🔐 Logging in...");
@@ -125,64 +146,59 @@ async function testZoneCreation(domain: string): Promise<void> {
 
 		if (zoneInfoResponse.code === 1000) {
 			console.log(`✅ Zone ${domain} already exists`);
-			console.log(`   Zone Data:`, JSON.stringify(zoneInfoResponse.resData, null, 2));
+			console.log(`   Zone ID: ${zoneInfoResponse.resData?.id}`);
+			console.log(`   Zone Type: ${zoneInfoResponse.resData?.type}`);
 		} else if (zoneInfoResponse.code === 2303) {
-			console.log(`ℹ️  Zone ${domain} does not exist, creating it...`);
+			console.log(`ℹ️  Zone ${domain} does not exist`);
 
-			// Create zone
-			try {
-				console.log("🔧 Making nameserver.create API call...");
-				const createZoneResponse = await inwxApiClient.callApi("nameserver.create", {
-					domain: domain,
-					type: "MASTER",
-				});
+			// Check if domain is registered
+			console.log(`🔍 Checking if domain ${domain} is registered...`);
+			const domainListResponse = await inwxApiClient.callApi("domain.list", {});
 
-				console.log("📥 Received response from nameserver.create");
-
-				if (createZoneResponse.code === 1000) {
-					console.log(`✅ Zone ${domain} created successfully!`);
-					console.log(`   Create Response:`, JSON.stringify(createZoneResponse.resData, null, 2));
-				} else {
-					console.error(`❌ Failed to create zone ${domain}: ${createZoneResponse.msg}`);
-					console.error(`   Error Code: ${createZoneResponse.code}`);
-					console.error(`   Response:`, JSON.stringify(createZoneResponse, null, 2));
-				}
-			} catch (createError) {
-				console.error(
-					`❌ Error during nameserver.create API call: ${createError instanceof Error ? createError.message : String(createError)}`,
+			if (domainListResponse.code === 1000) {
+				const domains = domainListResponse.resData?.domains || [];
+				const isDomainRegistered = domains.some(
+					(registeredDomain: { domain: string }) => registeredDomain.domain === domain,
 				);
-				console.error(`   Stack trace:`, createError instanceof Error ? createError.stack : "No stack trace available");
+
+				if (isDomainRegistered) {
+					console.log(`✅ Domain ${domain} is registered`);
+					console.log(`💡 You can create a DNS zone for this domain`);
+				} else {
+					console.log(`❌ Domain ${domain} is not registered in your INWX account`);
+					console.log(`💡 You need to register the domain before creating a DNS zone`);
+				}
+			} else {
+				console.error(`❌ Failed to check domain registration: ${domainListResponse.msg}`);
 			}
 		} else {
-			console.error(`❌ Error checking zone ${domain}: ${zoneInfoResponse.msg}`);
-			console.error(`   Error Code: ${zoneInfoResponse.code}`);
+			console.error(`❌ Failed to check zone: ${zoneInfoResponse.msg}`);
 		}
 
 		// Logout
 		try {
 			await inwxApiClient.logout();
-			console.log("🔓 Logged out successfully");
+			console.log("\n🔓 Logged out successfully");
 		} catch (_error) {
 			console.log("⚠️  Logout error (ignored)");
 		}
 	} catch (error) {
-		console.error(`❌ Test failed: ${error instanceof Error ? error.message : String(error)}`);
+		console.error(`❌ Failed to test zone creation: ${error instanceof Error ? error.message : String(error)}`);
 		console.log("\n💡 Make sure you have a .env file with the required INWX credentials:");
 		printEnvExample();
 	}
 }
 
-async function listDomains(): Promise<void> {
+async function listDomains(environment: "ote" | "live", verbose: boolean): Promise<void> {
 	console.log("🔍 Listing all domains in INWX account...\n");
 
 	try {
-		const inwxConnection = getInwxConnectionFromEnv();
-		const isOte = (inwxConnection.environment || "ote") === "ote";
-		const inwxApiUrl = isOte ? ApiClient.API_URL_OTE : ApiClient.API_URL_LIVE;
+		const inwxConnection = getInwxConnectionFromEnv(environment, verbose);
+		const isOte = environment === "ote";
 
 		console.log(`🔧 Connecting to INWX ${isOte ? "OTE (Test)" : "Live"} environment...`);
 
-		const inwxApiClient = new ApiClient(inwxApiUrl, Language.EN, true);
+		const inwxApiClient = new ApiClient(inwxConnection.environment === "ote" ? ApiClient.API_URL_OTE : ApiClient.API_URL_LIVE, Language.EN, verbose);
 
 		// Login
 		console.log("🔐 Logging in...");

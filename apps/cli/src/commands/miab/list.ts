@@ -13,7 +13,7 @@ interface ListOptions {
 export function listCommand(yargs: Argv): void {
 	yargs.command({
 		command: "list",
-		describe: "List all DNS records from MIAB (credentials from .env file)",
+		describe: "List DNS records from MIAB (credentials from .env file)",
 		builder: (yargs: Argv) => {
 			return yargs
 				.option("verbose", {
@@ -23,33 +23,31 @@ export function listCommand(yargs: Argv): void {
 				})
 				.option("format", {
 					type: "string",
-					choices: ["table", "json", "yaml"],
+					choices: ["table", "json", "yaml"] as const,
 					description: "Output format",
 					default: "table",
 				})
 				.option("filter", {
 					type: "string",
-					description: "Filter records by text (searches in all fields)",
+					description: "Filter records by type (e.g., 'A', 'CNAME', 'MX')",
 				})
 				.option("zone", {
 					type: "string",
 					description: "Filter by specific zone/domain",
 				})
-				.example("$0 miab list", "List all DNS records in table format")
-				.example("$0 miab list --format json", "List DNS records in JSON format")
-				.example("$0 miab list --zone example.com", "List records for specific zone")
-				.example("$0 miab list --filter mail", "Filter records containing 'mail'")
+				.example("$0 miab list", "List all DNS records")
+				.example("$0 miab list --format json", "Output in JSON format")
+				.example("$0 miab list --filter A", "Show only A records")
+				.example("$0 miab list --zone example.com", "Show records for specific zone")
 				.example("$0 miab list --verbose --format yaml", "Verbose output in YAML format");
 		},
 		handler: async (args: unknown) => {
 			const listOptions = args as ListOptions;
 
 			try {
-				const connectionOptions = getMiabConnectionFromEnv();
+				const connectionOptions = getMiabConnectionFromEnv(listOptions.verbose || false);
 				const result = await listMiabDns({
 					...connectionOptions,
-					verbose: listOptions.verbose,
-					format: listOptions.format,
 					filter: listOptions.filter,
 					zone: listOptions.zone,
 				});
@@ -58,12 +56,13 @@ export function listCommand(yargs: Argv): void {
 					console.log(`✅ ${result.message}`);
 
 					if (result.data) {
-						const { zones, totalZones, totalRecords } = result.data;
+						const { zones, totalZones, totalRecords, connection } = result.data;
 
 						// Show summary
 						console.log(`\n📊 Summary:`);
 						console.log(`  Total Zones: ${totalZones}`);
 						console.log(`  Total Records: ${totalRecords}`);
+						console.log(`  Environment: ${connection.environment}`);
 
 						if (listOptions.filter) {
 							console.log(`  Filter Applied: ${listOptions.filter}`);
@@ -94,7 +93,7 @@ export function listCommand(yargs: Argv): void {
 
 						if (listOptions.verbose && result.data.connection) {
 							console.log(`\n🔗 Connection Details:`);
-							console.log(`  MIAB URL: ${result.data.connection.baseUrl}`);
+							console.log(`  Base URL: ${result.data.connection.baseUrl}`);
 							console.log(`  Username: ${result.data.connection.username}`);
 							console.log(`  Environment: ${result.data.connection.environment}`);
 							console.log(`  Timestamp: ${result.data.timestamp}`);

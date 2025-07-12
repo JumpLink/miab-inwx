@@ -1,16 +1,15 @@
 import type { Argv } from "yargs";
 import { getMiabStatus } from "../../actions/miab/status.ts";
 import { getMiabConnectionFromEnv, printEnvExample } from "../../utils/env.ts";
-import { formatConnectionDetails, formatSystemStatus, getStatusIcon } from "../../utils/formatters.ts";
 
 interface StatusOptions {
 	verbose?: boolean;
 }
 
 export function statusCommand(yargs: Argv): void {
-	yargs.command<StatusOptions>({
+	yargs.command({
 		command: "status",
-		describe: "Check the status of the Mail-in-a-Box server (credentials from .env file)",
+		describe: "Check the status of the MIAB server (credentials from .env file)",
 		builder: (yargs: Argv) => {
 			return yargs
 				.option("verbose", {
@@ -21,24 +20,31 @@ export function statusCommand(yargs: Argv): void {
 				.example("$0 miab status", "Check MIAB server status")
 				.example("$0 miab status --verbose", "Check MIAB server status with verbose output");
 		},
-		handler: async (args: StatusOptions) => {
+		handler: async (args: unknown) => {
+			const statusOptions = args as StatusOptions;
+
 			try {
-				const connectionOptions = getMiabConnectionFromEnv();
-				const result = await getMiabStatus({
-					...connectionOptions,
-					verbose: args.verbose,
-				});
+				const connectionOptions = getMiabConnectionFromEnv(statusOptions.verbose || false);
+				const result = await getMiabStatus(connectionOptions);
 
 				if (result.success) {
-					const icon = getStatusIcon(result.data.summary.hasErrors, result.data.summary.hasWarnings);
-					console.log(`${icon} ${result.message}`);
+					console.log(`✅ ${result.message}`);
+					if (result.data) {
+						console.log(`\n📊 Server Information:`);
+						console.log(`  Base URL: ${result.data.baseUrl}`);
+						console.log(`  Version: ${result.data.version || "N/A"}`);
+						console.log(`  Total Checks: ${result.data.summary.totalChecks}`);
+						console.log(`  Errors: ${result.data.summary.errors}`);
+						console.log(`  Warnings: ${result.data.summary.warnings}`);
+						console.log(`  OK: ${result.data.summary.ok}`);
 
-					if (result.data.status) {
-						console.log(formatSystemStatus(result.data.status, args.verbose));
-					}
-
-					if (args.verbose && result.data) {
-						console.log(formatConnectionDetails(result.data));
+						if (statusOptions.verbose && result.data) {
+							console.log("\nConnection Details:");
+							console.log(`  Base URL: ${result.data.baseUrl}`);
+							console.log(`  Version: ${result.data.version || "N/A"}`);
+							console.log(`  Reboot Required: ${result.data.rebootRequired ? "Yes" : "No"}`);
+							console.log(`  Timestamp: ${result.data.timestamp}`);
+						}
 					}
 				} else {
 					console.error(`❌ ${result.error}`);
