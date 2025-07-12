@@ -1,28 +1,21 @@
 import { MiabClient } from "@miab-inwx/miab-client";
 import { ApiClient, Language } from "domrobot-client";
+import type {
+	InwxConnectionConfig,
+	InwxEnvironmentInfo,
+	InwxNameserverInfoResponse,
+	MiabConnectionConfig,
+} from "../types/dns.ts";
 import type { CommandResult } from "../types/index.ts";
 import type { DnsRecord, DnsZone, ExistingInwxRecord } from "../types/migrate-dns.ts";
-import type { 
-	MiabConnectionConfig, 
-	InwxConnectionConfig, 
-	InwxEnvironmentInfo
-} from "../types/dns.ts";
+import { INWX_SUCCESS_CODE, INWX_ZONE_NOT_FOUND_CODE } from "./constants.ts";
 import {
-	INWX_SUCCESS_CODE,
-	INWX_ZONE_NOT_FOUND_CODE,
-	INWX_RECORD_EXISTS_CODE,
-	INWX_POLICY_VIOLATION_CODE
-} from "./constants.ts";
-import { 
-	findMatchingRecord, 
-	getDomainName, 
-	convertRawRecordToDnsRecord, 
-	convertInwxRecordToDnsRecord 
+	convertInwxRecordToDnsRecord,
+	convertRawRecordToDnsRecord,
+	findMatchingRecord,
+	getDomainName,
 } from "./dns-helpers.ts";
-import { parseMxRecord, parseSrvRecord, cleanSshfpRecord } from "./record-parsers.ts";
-import { compareRecords } from "./record-comparers.ts";
-
-
+import { cleanSshfpRecord, parseMxRecord, parseSrvRecord } from "./record-parsers.ts";
 
 /**
  * Handle API errors during record fetching
@@ -49,8 +42,8 @@ export async function findExistingInwxRecord(
 	miabRecord: DnsRecord,
 ): Promise<CommandResult<ExistingInwxRecord | null>> {
 	try {
-		let recordsResponse: { code: number; msg: string; resData?: { record?: any[] } };
-		
+		let recordsResponse: InwxNameserverInfoResponse;
+
 		try {
 			recordsResponse = await client.callApi("nameserver.info", { domain });
 		} catch (apiError) {

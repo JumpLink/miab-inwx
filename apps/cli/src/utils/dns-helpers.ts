@@ -1,5 +1,5 @@
+import type { InwxApiRecord, NormalizedRecord } from "../types/dns.ts";
 import type { DnsRecord, ExistingInwxRecord } from "../types/migrate-dns.ts";
-import type { NormalizedRecord } from "../types/dns.ts";
 import { cleanSshfpRecord } from "./record-parsers.ts";
 
 /**
@@ -64,62 +64,56 @@ export function doesRecordContentMatch(miabRecord: DnsRecord, inwxRecord: { cont
 /**
  * Create ExistingInwxRecord from API response record
  */
-export function createExistingInwxRecord(record: any): ExistingInwxRecord {
+export function createExistingInwxRecord(record: InwxApiRecord): ExistingInwxRecord {
 	return {
 		id: record.id || "",
 		name: record.name || "",
 		type: record.type || "",
 		content: record.content || "",
-		ttl: record.ttl !== undefined ? parseInt(record.ttl, 10) : undefined,
-		prio: shouldIncludePriority(record) ? parseInt(record.prio, 10) : undefined,
-		weight: shouldIncludeWeight(record) ? parseInt(record.weight, 10) : undefined,
-		port: shouldIncludePort(record) ? parseInt(record.port, 10) : undefined,
+		ttl: record.ttl || 0,
+		...(shouldIncludePriority(record) && { prio: record.prio }),
+		...(shouldIncludeWeight(record) && { weight: record.weight }),
+		...(shouldIncludePort(record) && { port: record.port }),
 	};
 }
 
 /**
  * Check if record should include priority field
  */
-export function shouldIncludePriority(record: any): boolean {
+export function shouldIncludePriority(record: InwxApiRecord): boolean {
 	return (record.type === "MX" || record.type === "SRV") && record.prio !== undefined;
 }
 
 /**
  * Check if record should include weight field
  */
-export function shouldIncludeWeight(record: any): boolean {
+export function shouldIncludeWeight(record: InwxApiRecord): boolean {
 	return record.type === "SRV" && record.weight !== undefined;
 }
 
 /**
  * Check if record should include port field
  */
-export function shouldIncludePort(record: any): boolean {
+export function shouldIncludePort(record: InwxApiRecord): boolean {
 	return record.type === "SRV" && record.port !== undefined;
 }
 
 /**
  * Find matching record in records array
  */
-export function findMatchingRecord(records: any[], miabRecord: DnsRecord): ExistingInwxRecord | null {
+export function findMatchingRecord(records: InwxApiRecord[], miabRecord: DnsRecord): ExistingInwxRecord | null {
 	const normalizedMiabName = normalizeRecordName(miabRecord.qname);
 
 	for (const record of records) {
 		if (!record || typeof record !== "object") continue;
 
-		const normalizedInwxName = normalizeRecordName(record.name || "");
-		const isNameAndTypeMatch = normalizedInwxName === normalizedMiabName && record.type === miabRecord.rtype;
+		const normalizedRecordName = normalizeRecordName(record.name || "");
+		const recordType = record.type || "";
 
-		if (!isNameAndTypeMatch) continue;
-
-		const needsContentMatching = recordTypeNeedsContentMatching(miabRecord.rtype);
-
-		if (needsContentMatching) {
-			if (doesRecordContentMatch(miabRecord, record)) {
+		if (normalizedRecordName === normalizedMiabName && recordType === miabRecord.rtype) {
+			if (doesRecordContentMatch(miabRecord, { content: record.content || "" })) {
 				return createExistingInwxRecord(record);
 			}
-		} else {
-			return createExistingInwxRecord(record);
 		}
 	}
 
@@ -163,16 +157,12 @@ export function isDnsRecord(
 /**
  * Convert INWX record to DNS record format
  */
-export function convertInwxRecordToDnsRecord(record: any): DnsRecord {
+export function convertInwxRecordToDnsRecord(record: InwxApiRecord): DnsRecord {
 	const dnsRecord: DnsRecord = {
 		qname: record.name || "",
 		rtype: record.type || "",
 		value: record.content || "",
 	};
 
-	if (record.ttl) {
-		dnsRecord.explanation = `TTL: ${record.ttl}`;
-	}
-
 	return dnsRecord;
-} 
+}

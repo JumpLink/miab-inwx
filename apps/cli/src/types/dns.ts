@@ -34,7 +34,16 @@ export interface ParsedSrvRecord {
 }
 
 /**
- * Record normalization result
+ * INWX environment information
+ */
+export interface InwxEnvironmentInfo {
+	name: string;
+	apiUrl: string;
+	isOte: boolean;
+}
+
+/**
+ * Normalized record for comparison
  */
 export interface NormalizedRecord {
 	name: string;
@@ -42,10 +51,27 @@ export interface NormalizedRecord {
 }
 
 /**
- * Environment information for INWX API
+ * INWX API record object structure
  */
-export interface InwxEnvironmentInfo {
-	name: string;
-	apiUrl: string;
-	isOte: boolean;
-} 
+export interface InwxApiRecord {
+	id?: string;
+	name?: string;
+	type?: string;
+	content?: string;
+	ttl?: number;
+	prio?: number;
+	weight?: number;
+	port?: number;
+	[key: string]: unknown;
+}
+
+/**
+ * INWX API response for nameserver.info
+ */
+export interface InwxNameserverInfoResponse {
+	code: number;
+	msg: string;
+	resData?: {
+		record?: InwxApiRecord[];
+	};
+}
