@@ -11,12 +11,13 @@ import type {
 } from "../../types/migrate-dns.ts";
 import { resolveRecordConflict } from "../../utils/conflict-resolution.ts";
 import { findExistingInwxRecord, updateInwxRecord } from "../../utils/dns.ts";
-
-// Constants
-const INWX_SUCCESS_CODE = 1000;
-const INWX_ZONE_NOT_FOUND_CODE = 2303;
-const INWX_RECORD_EXISTS_CODE = 2302;
-const INWX_POLICY_VIOLATION_CODE = 2308;
+import { 
+	INWX_SUCCESS_CODE, 
+	INWX_ZONE_NOT_FOUND_CODE, 
+	INWX_RECORD_EXISTS_CODE, 
+	INWX_POLICY_VIOLATION_CODE 
+} from "../../utils/constants.ts";
+import { parseMxRecord, parseSrvRecord, cleanSshfpRecord } from "../../utils/record-parsers.ts";
 const LARGE_ZONE_THRESHOLD = 50;
 const RECORD_PROGRESS_THRESHOLD = 10;
 const API_DELAY_MS = 100;
@@ -837,41 +838,7 @@ function buildRecordParams(record: DnsRecord, domain: string): Record<string, un
 	return params;
 }
 
-/**
- * Parse MX record value
- */
-function parseMxRecord(value: string): { prio: number; content: string } {
-	const mxParts = value.trim().split(/\s+/);
-	if (mxParts.length >= 2) {
-		const priority = parseInt(mxParts[0], 10);
-		const content = mxParts.slice(1).join(" ");
-		return { prio: priority, content };
-	}
-	return { prio: 10, content: value };
-}
 
-/**
- * Parse SRV record value
- */
-function parseSrvRecord(value: string): { prio: number; weight: number; port: number; content: string } {
-	const srvParts = value.trim().split(/\s+/);
-	if (srvParts.length >= 4) {
-		const priority = parseInt(srvParts[0], 10);
-		const weight = parseInt(srvParts[1], 10);
-		const port = parseInt(srvParts[2], 10);
-		const content = srvParts.slice(3).join(" ");
-		return { prio: priority, weight, port, content };
-	}
-	// Fallback if parsing fails
-	return { prio: 0, weight: 0, port: 80, content: value };
-}
-
-/**
- * Clean SSHFP record value
- */
-function cleanSshfpRecord(value: string): string {
-	return value.replace(/[()]/g, "").replace(/\s+/g, " ").trim();
-}
 
 /**
  * Handle record creation response

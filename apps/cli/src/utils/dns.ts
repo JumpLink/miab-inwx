@@ -22,16 +22,7 @@ import {
 import { parseMxRecord, parseSrvRecord, cleanSshfpRecord } from "./record-parsers.ts";
 import { compareRecords } from "./record-comparers.ts";
 
-// Re-export constants for backward compatibility
-export { 
-	INWX_SUCCESS_CODE,
-	INWX_ZONE_NOT_FOUND_CODE, 
-	INWX_RECORD_EXISTS_CODE,
-	INWX_POLICY_VIOLATION_CODE
-} from "./constants.ts";
 
-// Re-export comparison function for backward compatibility
-export { compareRecords } from "./record-comparers.ts";
 
 /**
  * Handle API errors during record fetching
