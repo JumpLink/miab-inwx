@@ -171,7 +171,7 @@ export function getInwxConnectionFromEnv(environment: "ote" | "live" = "ote", ve
 		const envPrefix = environment === "ote" ? "INWX_OTE_" : "INWX_LIVE_";
 		throw new Error(
 			`Missing required INWX ${environment.toUpperCase()} environment variables: ${envPrefix}USERNAME, ${envPrefix}PASSWORD. ` +
-			`Alternatively, set legacy INWX_USERNAME and INWX_PASSWORD for backwards compatibility.`
+				`Alternatively, set legacy INWX_USERNAME and INWX_PASSWORD for backwards compatibility.`,
 		);
 	}
 
@@ -199,7 +199,7 @@ export function validateEnvironment(requireMiab = false, requireInwx = false, in
 
 	if (requireInwx) {
 		const envPrefix = inwxEnvironment === "ote" ? "INWX_OTE_" : "INWX_LIVE_";
-		
+
 		let username: string | undefined;
 		let password: string | undefined;
 
