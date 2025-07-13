@@ -732,9 +732,35 @@ async function migrateRecord(
 		// Record doesn't exist, create new one
 		const recordParams = buildRecordParams(record, domain);
 
-		// Add debug logging for SRV records
-		if (context.verbose && record.rtype === "SRV") {
-			console.log(`${zoneProgress}   🔍 Creating SRV record with params:`, JSON.stringify(recordParams, null, 2));
+		// Add enhanced debug logging for SRV records, especially problematic ones
+		if (record.rtype === "SRV") {
+			const isProblematicRecord = record.qname.includes("_caldavs._tcp") || record.qname.includes("_carddavs._tcp");
+
+			// Validate SRV record parameters
+			const validation = validateSrvRecordParams(recordParams, record);
+
+			if (!validation.isValid) {
+				result.failedRecords++;
+				const errorMsg = `Invalid SRV record parameters for ${record.qname}: ${validation.issues.join(", ")}`;
+				result.errors.push(errorMsg);
+				if (context.verbose) {
+					console.error(`${zoneProgress}   ❌ ${errorMsg}`);
+					console.error(`${zoneProgress}   📝 Original value: "${record.value}"`);
+					console.error(`${zoneProgress}   🔧 Parsed params:`, JSON.stringify(recordParams, null, 2));
+				}
+				return;
+			}
+
+			if (context.verbose || isProblematicRecord) {
+				console.log(`${zoneProgress}   🔍 Creating SRV record: ${record.qname}`);
+				console.log(`${zoneProgress}   📝 Original value: "${record.value}"`);
+				console.log(`${zoneProgress}   🔧 Parsed params:`, JSON.stringify(recordParams, null, 2));
+				console.log(`${zoneProgress}   ✅ Parameter validation passed`);
+
+				if (isProblematicRecord) {
+					console.log(`${zoneProgress}   ⚠️  This is a known problematic record type (_caldavs/_carddavs)`);
+				}
+			}
 		}
 
 		let createResponse: { code: number; msg: string };
@@ -745,11 +771,47 @@ async function migrateRecord(
 			const errorMessage = apiError instanceof Error ? apiError.message : "Unknown API error";
 
 			if (errorMessage.includes("Unexpected end of JSON input") || errorMessage.includes("JSON")) {
+				// For SRV records, try alternative parameter formatting as a workaround
+				if (record.rtype === "SRV") {
+					if (context.verbose) {
+						console.log(`${zoneProgress}   🔄 Retrying SRV record with alternative formatting...`);
+					}
+
+					try {
+						// Try alternative approach: combine weight, port, and content into a single content field
+						const { prio, weight, port, content } = parseSrvRecord(record.value);
+						const alternativeParams = {
+							domain,
+							type: record.rtype,
+							name: record.qname,
+							prio: prio,
+							content: `${weight} ${port} ${content}`,
+						};
+
+						if (context.verbose) {
+							console.log(`${zoneProgress}   🔧 Alternative params:`, JSON.stringify(alternativeParams, null, 2));
+						}
+
+						createResponse = await inwxClient.callApi("nameserver.createRecord", alternativeParams);
+
+						// If successful, handle the response and return
+						handleRecordCreationResponse(createResponse, record, alternativeParams, result, context, zoneProgress);
+						return;
+					} catch (retryError) {
+						if (context.verbose) {
+							console.error(
+								`${zoneProgress}   ❌ Alternative formatting also failed: ${retryError instanceof Error ? retryError.message : "Unknown error"}`,
+							);
+						}
+						// Fall through to original error handling
+					}
+				}
+
 				// JSON parsing error - likely empty response from INWX
 				result.failedRecords++;
-				result.errors.push(
-					`INWX API returned invalid JSON for ${record.rtype} record ${record.qname}. This might be a temporary API issue.`,
-				);
+				const detailedError = `INWX API returned invalid JSON for ${record.rtype} record ${record.qname}. This might be a temporary API issue.`;
+				result.errors.push(detailedError);
+
 				if (context.verbose) {
 					console.error(
 						`${zoneProgress}   ❌ JSON parsing error for ${record.rtype} record ${record.qname}: ${errorMessage}`,
@@ -758,6 +820,30 @@ async function migrateRecord(
 						`${zoneProgress}   📝 Record params that caused the error:`,
 						JSON.stringify(recordParams, null, 2),
 					);
+
+					// Additional debugging for SRV records
+					if (record.rtype === "SRV") {
+						console.error(`${zoneProgress}   🔍 SRV record debugging:`);
+						console.error(`${zoneProgress}       Original value: "${record.value}"`);
+						console.error(`${zoneProgress}       Parsed prio: ${recordParams.prio}`);
+						console.error(`${zoneProgress}       Parsed weight: ${recordParams.weight}`);
+						console.error(`${zoneProgress}       Parsed port: ${recordParams.port}`);
+						console.error(`${zoneProgress}       Parsed content: "${recordParams.content}"`);
+
+						// Check for potential issues with the parsed values
+						if (typeof recordParams.prio !== "number" || Number.isNaN(recordParams.prio as number)) {
+							console.error(`${zoneProgress}       ⚠️  Invalid priority value!`);
+						}
+						if (typeof recordParams.weight !== "number" || Number.isNaN(recordParams.weight as number)) {
+							console.error(`${zoneProgress}       ⚠️  Invalid weight value!`);
+						}
+						if (typeof recordParams.port !== "number" || Number.isNaN(recordParams.port as number)) {
+							console.error(`${zoneProgress}       ⚠️  Invalid port value!`);
+						}
+						if (!recordParams.content || typeof recordParams.content !== "string") {
+							console.error(`${zoneProgress}       ⚠️  Invalid content value!`);
+						}
+					}
 				}
 				return;
 			}
@@ -775,6 +861,76 @@ async function migrateRecord(
 			console.error(`${zoneProgress}   ❌ ${errorMsg}`);
 		}
 	}
+}
+
+/**
+ * Validate SRV record parameters before API call
+ */
+function validateSrvRecordParams(
+	recordParams: Record<string, unknown>,
+	_record: DnsRecord,
+): { isValid: boolean; issues: string[] } {
+	const issues: string[] = [];
+
+	// Check required fields
+	if (typeof recordParams.prio !== "number" || Number.isNaN(recordParams.prio as number)) {
+		issues.push(`Invalid priority: ${recordParams.prio} (type: ${typeof recordParams.prio})`);
+	}
+
+	if (typeof recordParams.weight !== "number" || Number.isNaN(recordParams.weight as number)) {
+		issues.push(`Invalid weight: ${recordParams.weight} (type: ${typeof recordParams.weight})`);
+	}
+
+	if (typeof recordParams.port !== "number" || Number.isNaN(recordParams.port as number)) {
+		issues.push(`Invalid port: ${recordParams.port} (type: ${typeof recordParams.port})`);
+	}
+
+	if (
+		!recordParams.content ||
+		typeof recordParams.content !== "string" ||
+		(recordParams.content as string).trim().length === 0
+	) {
+		issues.push(`Invalid content: "${recordParams.content}" (type: ${typeof recordParams.content})`);
+	}
+
+	// Check for reasonable value ranges
+	const prio = recordParams.prio as number;
+	const weight = recordParams.weight as number;
+	const port = recordParams.port as number;
+
+	if (!Number.isNaN(prio) && (prio < 0 || prio > 65535)) {
+		issues.push(`Priority out of range: ${prio} (should be 0-65535)`);
+	}
+
+	if (!Number.isNaN(weight) && (weight < 0 || weight > 65535)) {
+		issues.push(`Weight out of range: ${weight} (should be 0-65535)`);
+	}
+
+	if (!Number.isNaN(port) && (port < 0 || port > 65535)) {
+		issues.push(`Port out of range: ${port} (should be 0-65535)`);
+	}
+
+	// Check for problematic content patterns
+	const content = recordParams.content as string;
+	if (content && typeof content === "string") {
+		if (content.includes("\n") || content.includes("\r")) {
+			issues.push(`Content contains line breaks: "${content}"`);
+		}
+
+		if (content.includes("\t")) {
+			issues.push(`Content contains tabs: "${content}"`);
+		}
+
+		// Check for unusual characters that might cause API issues
+		if (!/^[a-zA-Z0-9.-]+$/.test(content)) {
+			issues.push(`Content contains unusual characters: "${content}"`);
+		}
+	}
+
+	return {
+		isValid: issues.length === 0,
+		issues,
+	};
 }
 
 /**
