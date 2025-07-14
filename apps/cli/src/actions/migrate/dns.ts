@@ -1,5 +1,6 @@
 import { MiabClient } from "@miab-inwx/miab-client";
 import { ApiClient, Language } from "domrobot-client";
+import { minimatch } from "minimatch";
 import type { CommandResult } from "../../types/index.ts";
 import type {
 	ApiClientConfig,
@@ -49,11 +50,16 @@ export async function migrateDnsRecords(options: MigrateDnsOptions): Promise<Com
 			return createErrorResult(dnsZones.error);
 		}
 
-		// Filter zones before creating migration context
-		const excludeDomains = options.excludeDomains || [];
-		const filteredZones = dnsZones.data.filter((zone) => !excludeDomains.includes(zone.domain));
+		// Use glob patterns for inclusion/exclusion
+		const include = options.include && options.include.length > 0 ? options.include : ["*"];
+		const exclude = options.exclude || [];
+		const filteredZones = dnsZones.data.filter((zone) => {
+			const isIncluded = include.some((pattern) => minimatch(zone.domain, pattern));
+			const isExcluded = exclude.some((pattern) => minimatch(zone.domain, pattern));
+			return isIncluded && !isExcluded;
+		});
 
-		logMigrationOverview(dnsZones.data, filteredZones, excludeDomains, environmentInfo.name, dryRun);
+		logMigrationOverview(dnsZones.data, filteredZones, include, exclude, environmentInfo.name, dryRun);
 
 		const migrationContext: MigrationContext = {
 			totalZones: filteredZones.length,
@@ -64,7 +70,8 @@ export async function migrateDnsRecords(options: MigrateDnsOptions): Promise<Com
 			dryRun,
 			verbose: miab.verbose || false,
 			conflictResolution: options.conflictResolution || "skip",
-			excludeDomains: options.excludeDomains || [],
+			include,
+			exclude,
 		};
 
 		const migrationResults = await executeMigration(filteredZones, apiConfig.data.inwx.client, migrationContext);
@@ -1116,7 +1123,8 @@ function logMigrationStart(environmentName: string, dryRun: boolean, verbose?: b
 function logMigrationOverview(
 	allZones: DnsZone[],
 	filteredZones: DnsZone[],
-	excludeDomains: string[],
+	include: string[],
+	exclude: string[],
 	environmentName: string,
 	dryRun: boolean,
 ): void {
@@ -1129,9 +1137,9 @@ function logMigrationOverview(
 	console.log(`  Total DNS Records Found: ${totalRecords}`);
 	console.log(`  DNS Records to Migrate: ${filteredRecords}`);
 	console.log(`  Target Environment: INWX ${environmentName}`);
-
-	if (excludeDomains.length > 0) {
-		console.log(`  Excluded Domains: ${excludeDomains.length} (${excludeDomains.join(", ")})`);
+	console.log(`  Included Patterns: ${include.join(", ")}`);
+	if (exclude.length > 0) {
+		console.log(`  Excluded Patterns: ${exclude.join(", ")}`);
 	}
 
 	if (dryRun) {

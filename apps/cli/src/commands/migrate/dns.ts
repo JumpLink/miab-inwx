@@ -9,7 +9,8 @@ interface DnsOptions {
 	verbose?: boolean;
 	environment?: "ote" | "live";
 	"conflict-resolution"?: ConflictResolutionStrategy;
-	"exclude-domains"?: string[];
+	include?: string[];
+	exclude?: string[];
 }
 
 export function dnsCommand(yargs: Argv): void {
@@ -42,9 +43,15 @@ export function dnsCommand(yargs: Argv): void {
 					description: "How to handle conflicting DNS records",
 					default: "skip" as ConflictResolutionStrategy,
 				})
-				.option("exclude-domains", {
+				.option("include", {
 					type: "array",
-					description: "Comma-separated list of domains to exclude from migration",
+					description: "Glob patterns for domains to include (default: * for all domains)",
+					default: ["*"],
+					coerce: (arg: string[]) => arg.flatMap((item: string) => item.split(",").map((d: string) => d.trim())),
+				})
+				.option("exclude", {
+					type: "array",
+					description: "Glob patterns for domains to exclude from migration",
 					coerce: (arg: string[]) => arg.flatMap((item: string) => item.split(",").map((d: string) => d.trim())),
 				})
 				.example("$0 migrate dns --dry-run", "Test DNS migration without making changes (OTE environment)")
@@ -53,7 +60,10 @@ export function dnsCommand(yargs: Argv): void {
 				.example("$0 migrate dns --conflict-resolution=overwrite", "Overwrite conflicting records")
 				.example("$0 migrate dns --conflict-resolution=interactive", "Ask for each conflicting record")
 				.example("$0 migrate dns --verbose", "Migration with verbose output")
-				.example("$0 migrate dns --exclude-domains=example.com,test.org", "Exclude specific domains from migration");
+				.example("$0 migrate dns --include=*.de", "Migrate only .de domains")
+				.example("$0 migrate dns --include=box.*.de", "Migrate only box.*.de domains")
+				.example("$0 migrate dns --include=box.mailfreun.de", "Migrate only box.mailfreun.de domain")
+				.example("$0 migrate dns --exclude=example.com,test.org", "Exclude specific domains from migration");
 		},
 		handler: async (args: unknown) => {
 			const options = args as DnsOptions;
@@ -91,10 +101,12 @@ export function dnsCommand(yargs: Argv): void {
 						break;
 				}
 
-				// Show excluded domains
-				const excludedDomains = options["exclude-domains"] || [];
-				if (excludedDomains.length > 0) {
-					console.log(`🚫 Excluded Domains: ${excludedDomains.join(", ")}`);
+				// Show included/excluded domains
+				const included = options.include || ["*"];
+				const excluded = options.exclude || [];
+				console.log(`📦 Included Domains (glob): ${included.join(", ")}`);
+				if (excluded.length > 0) {
+					console.log(`🚫 Excluded Domains (glob): ${excluded.join(", ")}`);
 					console.log("   These domains will be skipped during migration");
 				}
 
@@ -109,7 +121,8 @@ export function dnsCommand(yargs: Argv): void {
 					inwx: inwxConnection,
 					dryRun: options["dry-run"],
 					conflictResolution: options["conflict-resolution"],
-					excludeDomains: options["exclude-domains"],
+					include: options.include,
+					exclude: options.exclude,
 				});
 
 				if (result.success) {

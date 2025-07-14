@@ -12,7 +12,14 @@ export interface MigrateDnsOptions {
 	inwx: InwxConnectionOptions;
 	dryRun?: boolean;
 	conflictResolution?: ConflictResolutionStrategy;
-	excludeDomains?: string[];
+	/**
+	 * Glob patterns for domains to include in migration. Default: ["*"] (all domains)
+	 */
+	include?: string[];
+	/**
+	 * Glob patterns for domains to exclude from migration. Default: []
+	 */
+	exclude?: string[];
 }
 
 /**
@@ -45,7 +52,14 @@ export interface MigrationContext {
 	dryRun: boolean;
 	verbose: boolean;
 	conflictResolution: ConflictResolutionStrategy;
-	excludeDomains: string[];
+	/**
+	 * Glob patterns for domains to include in migration
+	 */
+	include: string[];
+	/**
+	 * Glob patterns for domains to exclude from migration
+	 */
+	exclude: string[];
 }
 
 export interface DnsRecord {
