@@ -17,9 +17,11 @@
 		"@miab-inwx/inwx-client": "workspace:*",
 		"@miab-inwx/miab-client": "workspace:*",
 		"domrobot-client": "^3.3.0",
+		"minimatch": "^10.0.3",
 		"yargs": "^18.0.0"
 	},
 	"devDependencies": {
+		"@types/minimatch": "^6.0.0",
 		"@types/node": "^24.0.12",
 		"@types/yargs": "^17.0.33",
 		"typescript": "^5.0.0"
