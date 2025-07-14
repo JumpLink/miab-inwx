@@ -1,0 +1,46 @@
+---
+alwaysApply: true
+---
+# General Codebase Orientation
+You are working in a TypeScript monorepo with a strong focus on clean code, type safety, and maintainability. The codebase is organized by clear separation of concerns: CLI interface code, business logic (actions), and type definitions are strictly separated into their respective folders. Naming conventions are consistent and descriptive for files, types, and functions. All types are exported centrally. The use of `any` is strictly forbidden; use `unknown` for CLI handler arguments and always define local interfaces for CLI options. Business logic must be pure and independent of CLI concerns. Always follow atomic commit practices and document your code for clarity. When creating or modifying CLI commands, adhere to the established folder structure and implementation patterns, ensuring that type safety and code readability are maintained throughout. Always check for and apply project-specific best practices and rules.
+
+## Additionally
+Each package in the monorepo contains a `README.md` file with further information about the package. If you need more details or context about a specific package, you should consult its `README.md` as it may contain helpful and relevant information.
+
+## Packages
+
+
+### `apps/cli`
+
+#### Folder Structure
+- `commands/{service}.ts`: Main command (registers subcommands)
+- `commands/{service}/{action}.ts`: Subcommands (CLI interface only)
+- `actions/{service}/{action}.ts`: Business logic (pure functions)
+- `types/{service}-{action}.ts`: Service-specific types
+- `types/commands.ts`: Generic command types
+- `types/index.ts`: Export all types
+- `utils/`: Shared utilities
+  
+#### Naming Conventions
+- Types: `{Service}{Action}Data`, `{Service}ConnectionOptions`
+- Files: `{service}-{action}.ts`, `{service}/{action}.ts`
+- Functions: `{action}{Service}Connection`, `get{Service}{Action}`
+  
+#### Type Safety Rules
+- NEVER use `any` – use `unknown` for yargs handlers
+- Create local interfaces for CLI options in command files
+- Use type assertions: `args as LocalInterface`
+- Define `CommandResult<T>` for consistent returns
+- Export all types from `types/index.ts`
+  
+#### Implementation Pattern
+1. **Types**: Define interfaces in `types/{service}-{action}.ts`
+2. **Actions**: Implement pure business logic in `actions/{service}/{action}.ts`
+3. **Commands**: Implement CLI interface in `commands/{service}/{action}.ts`
+4. **Main Command**: Register subcommands in `commands/{service}.ts`
+
+#### Key Principles
+- Separate CLI interface from business logic
+- Follow consistent naming patterns
+- Maintain type safety throughout
+- Export types centrally
