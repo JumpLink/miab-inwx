@@ -2,6 +2,7 @@
 export * from "./commands.ts";
 // DNS types
 export * from "./dns.ts";
+export * from "./inwx-check-duplicates.ts";
 export * from "./inwx-list.ts";
 // Export INWX-specific types
 export * from "./inwx-status.ts";
