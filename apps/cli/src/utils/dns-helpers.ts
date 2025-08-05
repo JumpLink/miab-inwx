@@ -104,20 +104,128 @@ export function shouldIncludePort(record: InwxApiRecord): boolean {
 export function findMatchingRecord(records: InwxApiRecord[], miabRecord: DnsRecord): ExistingInwxRecord | null {
 	const normalizedMiabName = normalizeRecordName(miabRecord.qname);
 
-	for (const record of records) {
-		if (!record || typeof record !== "object") continue;
+	// Find all records with matching name and type
+	const candidateRecords = records.filter((record) => {
+		if (!record || typeof record !== "object") return false;
 
 		const normalizedRecordName = normalizeRecordName(record.name || "");
 		const recordType = record.type || "";
 
-		if (normalizedRecordName === normalizedMiabName && recordType === miabRecord.rtype) {
-			if (doesRecordContentMatch(miabRecord, { content: record.content || "" })) {
-				return createExistingInwxRecord(record);
-			}
+		return normalizedRecordName === normalizedMiabName && recordType === miabRecord.rtype;
+	});
+
+	// Look for exact content match among candidates
+	for (const record of candidateRecords) {
+		if (doesRecordContentMatch(miabRecord, { content: record.content || "" })) {
+			return createExistingInwxRecord(record);
 		}
 	}
 
 	return null;
+}
+
+/**
+ * Check if record type allows multiple values
+ */
+export function allowsMultipleRecords(recordType: string): boolean {
+	return ["MX", "SRV", "TXT", "A", "AAAA", "NS"].includes(recordType);
+}
+
+/**
+ * Detect potentially problematic duplicate records
+ */
+export function detectProblematicDuplicates(records: InwxApiRecord[]): Array<{
+	name: string;
+	type: string;
+	records: ExistingInwxRecord[];
+	reason: string;
+}> {
+	const duplicates: Array<{
+		name: string;
+		type: string;
+		records: ExistingInwxRecord[];
+		reason: string;
+	}> = [];
+
+	const recordGroups = new Map<string, InwxApiRecord[]>();
+
+	// Group records by name + type
+	for (const record of records) {
+		if (!record || typeof record !== "object") continue;
+
+		const key = `${normalizeRecordName(record.name || "")}|${record.type || ""}`;
+		if (!recordGroups.has(key)) {
+			recordGroups.set(key, []);
+		}
+		const group = recordGroups.get(key);
+		if (group) {
+			group.push(record);
+		}
+	}
+
+	// Check each group for problematic duplicates
+	for (const [key, groupRecords] of recordGroups) {
+		if (groupRecords.length <= 1) continue;
+
+		const [name, type] = key.split("|");
+
+		// Convert to ExistingInwxRecord format
+		const existingRecords = groupRecords.map(createExistingInwxRecord);
+
+		// Check for problematic patterns
+		if (type === "TXT" && name.startsWith("_dmarc.")) {
+			// DMARC records with conflicting policies
+			const policies = existingRecords
+				.map((r) => {
+					const match = r.content.match(/p=([^;]+)/);
+					return match ? match[1] : null;
+				})
+				.filter(Boolean);
+
+			if (new Set(policies).size > 1) {
+				duplicates.push({
+					name,
+					type,
+					records: existingRecords,
+					reason: `Conflicting DMARC policies: ${policies.join(", ")}`,
+				});
+			}
+
+			// Also check for identical DMARC records (even with same policy)
+			const contents = existingRecords.map((r) => r.content);
+			const uniqueContents = new Set(contents);
+			if (contents.length > uniqueContents.size) {
+				duplicates.push({
+					name,
+					type,
+					records: existingRecords,
+					reason: "Identical DMARC records found",
+				});
+			}
+		} else if (!allowsMultipleRecords(type)) {
+			// Record types that shouldn't have duplicates
+			duplicates.push({
+				name,
+				type,
+				records: existingRecords,
+				reason: `Record type ${type} should not have multiple values`,
+			});
+		} else if (type === "TXT") {
+			// Look for identical TXT records (true duplicates)
+			const contents = existingRecords.map((r) => r.content);
+			const uniqueContents = new Set(contents);
+			if (contents.length > uniqueContents.size) {
+				duplicates.push({
+					name,
+					type,
+					records: existingRecords,
+					reason: "Identical TXT records found",
+				});
+			}
+		}
+	}
+
+	return duplicates;
 }
 
 /**
