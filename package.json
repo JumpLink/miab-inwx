@@ -7,7 +7,8 @@
     "check": "yarn format && yarn check:types",
     "format": "biome check . --write --unsafe",
     "lint": "biome lint --write .",
-    "check:types": "yarn workspaces foreach -v --all --parallel run check:types"
+    "check:types": "yarn workspaces foreach -v --all --parallel run check:types",
+    "start": "yarn workspace @miab-inwx/cli start"
   },
   "packageManager": "yarn@4.9.2",
   "workspaces": [
