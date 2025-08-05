@@ -9,6 +9,8 @@ export * from "./dns-helpers.ts";
 // Other utilities
 export * from "./env.ts";
 export * from "./formatters.ts";
+// INWX API utilities
+export * from "./inwx-helpers.ts";
 // Record comparison utilities
 export * from "./record-comparers.ts";
 // Record parsing utilities
