@@ -1,6 +1,7 @@
 import { ApiClient, Language } from "domrobot-client";
 import type { Argv } from "yargs";
 import { getInwxConnectionFromEnv, getMiabConnectionFromEnv, loadEnvConfig, printEnvExample } from "../utils/env.ts";
+import { getAllDomains } from "../utils/inwx-helpers.ts";
 
 export function debugCommand(yargs: Argv): void {
 	yargs.command({
@@ -157,13 +158,10 @@ async function testZoneCreation(domain: string, environment: "ote" | "live", ver
 
 			// Check if domain is registered
 			console.log(`🔍 Checking if domain ${domain} is registered...`);
-			const domainListResponse = await inwxApiClient.callApi("domain.list", {});
+			const domainsResult = await getAllDomains(inwxApiClient);
 
-			if (domainListResponse.code === 1000) {
-				const domains = domainListResponse.resData?.domains || [];
-				const isDomainRegistered = domains.some(
-					(registeredDomain: { domain: string }) => registeredDomain.domain === domain,
-				);
+			if (domainsResult.success && domainsResult.domains) {
+				const isDomainRegistered = domainsResult.domains.includes(domain);
 
 				if (isDomainRegistered) {
 					console.log(`✅ Domain ${domain} is registered`);
@@ -173,7 +171,7 @@ async function testZoneCreation(domain: string, environment: "ote" | "live", ver
 					console.log(`💡 You need to register the domain before creating a DNS zone`);
 				}
 			} else {
-				console.error(`❌ Failed to check domain registration: ${domainListResponse.msg}`);
+				console.error(`❌ Failed to check domain registration: ${domainsResult.error || "Unknown error"}`);
 			}
 		} else {
 			console.error(`❌ Failed to check zone: ${zoneInfoResponse.msg}`);
@@ -225,24 +223,17 @@ async function listDomains(environment: "ote" | "live", verbose: boolean): Promi
 
 		// List domains
 		console.log("📋 Fetching domain list...");
-		const domainListResponse = await inwxApiClient.callApi("domain.list", {});
+		const domainsResult = await getAllDomains(inwxApiClient);
 
-		if (domainListResponse.code === 1000) {
+		if (domainsResult.success && domainsResult.domains) {
 			console.log("✅ Domain list retrieved successfully");
+			console.log(`\n📌 Found ${domainsResult.domains.length} domains in your account:`);
 
-			if (domainListResponse.resData?.domains) {
-				const domains = domainListResponse.resData.domains;
-				console.log(`\n📌 Found ${domains.length} domains in your account:`);
-
-				domains.forEach((domain: { domain: string; status?: string; [key: string]: unknown }, index: number) => {
-					console.log(`  ${index + 1}. ${domain.domain} (Status: ${domain.status})`);
-				});
-			} else {
-				console.log("⚠️  No domains found or unexpected response format");
-			}
+			domainsResult.domains.forEach((domain: string, index: number) => {
+				console.log(`  ${index + 1}. ${domain}`);
+			});
 		} else {
-			console.error(`❌ Failed to list domains: ${domainListResponse.msg}`);
-			console.error(`   Error Code: ${domainListResponse.code}`);
+			console.error(`❌ Failed to list domains: ${domainsResult.error || "Unknown error"}`);
 		}
 
 		// List nameservers

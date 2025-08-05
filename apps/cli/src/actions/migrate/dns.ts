@@ -6,6 +6,7 @@ import type {
 	ApiClientConfig,
 	DnsRecord,
 	DnsZone,
+	ExistingInwxRecord,
 	MigrateDnsData,
 	MigrateDnsOptions,
 	MigrationContext,
@@ -22,7 +23,19 @@ import {
 	RECORD_PROGRESS_THRESHOLD,
 } from "../../utils/constants.ts";
 import { findExistingInwxRecord, updateInwxRecord } from "../../utils/dns.ts";
+import { doesRecordContentMatch } from "../../utils/dns-helpers.ts";
+import { getAllDomains } from "../../utils/inwx-helpers.ts";
 import { cleanSshfpRecord, parseMxRecord, parseSrvRecord } from "../../utils/record-parsers.ts";
+
+/**
+ * Details about a migration conflict for logging purposes
+ */
+interface ConflictDetails {
+	recordName: string;
+	recordType: string;
+	miabRecords: DnsRecord[];
+	conflictingInwxRecords: Array<{ content?: string }>;
+}
 
 /**
  * Migrate DNS records from MIAB to INWX
@@ -413,9 +426,237 @@ async function migrateZone(
 		return result;
 	}
 
+	// Check for existing records that might conflict with migration
+	await checkExistingRecordsForMigration(zone, inwxClient, context, zoneProgress, result);
+
 	await migrateZoneRecords(zone, inwxClient, context, zoneProgress, result);
 
 	return result;
+}
+
+/**
+ * Check for existing records that might conflict during MIAB migration
+ */
+async function checkExistingRecordsForMigration(
+	zone: DnsZone,
+	inwxClient: ApiClient,
+	context: MigrationContext,
+	zoneProgress: string,
+	result: MigrationResult,
+): Promise<void> {
+	if (context.dryRun) {
+		return;
+	}
+
+	try {
+		const existingRecords = await fetchExistingInwxRecords(inwxClient, zone.domain);
+		if (!existingRecords) {
+			return;
+		}
+
+		const miabRecordGroups = groupMiabRecordsByNameAndType(zone.records);
+		const conflictAnalysis = analyzeRecordConflicts(miabRecordGroups, existingRecords);
+
+		logMigrationConflicts(conflictAnalysis, context, zoneProgress, result);
+	} catch (error) {
+		if (context.verbose) {
+			console.log(
+				`${zoneProgress}   ⚠️  Could not check for migration conflicts: ${error instanceof Error ? error.message : "Unknown error"}`,
+			);
+		}
+	}
+}
+
+/**
+ * Fetch existing INWX records for a domain
+ */
+async function fetchExistingInwxRecords(inwxClient: ApiClient, domain: string): Promise<unknown[] | null> {
+	const recordsResponse = await inwxClient.callApi("nameserver.info", { domain });
+
+	if (recordsResponse.code !== INWX_SUCCESS_CODE) {
+		return null;
+	}
+
+	return recordsResponse.resData?.record || [];
+}
+
+/**
+ * Group MIAB records by name and type for conflict detection
+ */
+function groupMiabRecordsByNameAndType(records: DnsRecord[]): Map<string, DnsRecord[]> {
+	const miabRecordGroups = new Map<string, DnsRecord[]>();
+
+	for (const record of records) {
+		const key = `${record.qname}|${record.rtype}`;
+		if (!miabRecordGroups.has(key)) {
+			miabRecordGroups.set(key, []);
+		}
+		const group = miabRecordGroups.get(key);
+		if (group) {
+			group.push(record);
+		}
+	}
+
+	return miabRecordGroups;
+}
+
+/**
+ * Analyze conflicts between MIAB and existing INWX records
+ */
+function analyzeRecordConflicts(
+	miabRecordGroups: Map<string, DnsRecord[]>,
+	existingRecords: unknown[],
+): { totalConflicts: number; migrationConflicts: number; conflicts: ConflictDetails[] } {
+	let totalConflicts = 0;
+	let migrationConflicts = 0;
+	const conflicts: ConflictDetails[] = [];
+
+	for (const [key, miabRecords] of miabRecordGroups) {
+		const [recordName, recordType] = key.split("|");
+
+		const conflictingInwxRecords = findConflictingInwxRecords(existingRecords, recordName, recordType);
+
+		if (conflictingInwxRecords.length > 0) {
+			totalConflicts++;
+
+			const hasContentConflict = checkForContentConflicts(miabRecords, conflictingInwxRecords);
+
+			if (hasContentConflict) {
+				migrationConflicts++;
+				conflicts.push({
+					recordName,
+					recordType,
+					miabRecords,
+					conflictingInwxRecords,
+				});
+			}
+		}
+	}
+
+	return { totalConflicts, migrationConflicts, conflicts };
+}
+
+/**
+ * Find INWX records that conflict with a MIAB record
+ */
+function findConflictingInwxRecords(
+	existingRecords: unknown[],
+	recordName: string,
+	recordType: string,
+): Array<{ content?: string }> {
+	return existingRecords.filter((inwxRecord: { name?: string; type?: string }) => {
+		const normalizedInwxName = inwxRecord.name?.replace(/\.$/, "") || "";
+		const normalizedMiabName = recordName.replace(/\.$/, "");
+		return normalizedInwxName === normalizedMiabName && inwxRecord.type === recordType;
+	}) as Array<{ content?: string }>;
+}
+
+/**
+ * Check if MIAB records have content conflicts with existing INWX records
+ */
+function checkForContentConflicts(
+	miabRecords: DnsRecord[],
+	conflictingInwxRecords: Array<{ content?: string }>,
+): boolean {
+	for (const miabRecord of miabRecords) {
+		const hasExactMatch = conflictingInwxRecords.some((inwxRecord) => {
+			return doesRecordContentMatch(miabRecord, { content: inwxRecord.content || "" });
+		});
+		if (!hasExactMatch) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * Log migration conflicts to console and add warnings
+ */
+function logMigrationConflicts(
+	analysis: { totalConflicts: number; migrationConflicts: number; conflicts: ConflictDetails[] },
+	context: MigrationContext,
+	zoneProgress: string,
+	result: MigrationResult,
+): void {
+	const { totalConflicts, migrationConflicts, conflicts } = analysis;
+
+	if (migrationConflicts > 0) {
+		const warningMsg = `Found ${migrationConflicts} record types with migration conflicts (${totalConflicts} total name+type matches)`;
+		result.warnings.push(warningMsg);
+
+		if (context.verbose) {
+			console.log(`${zoneProgress}   📊 Migration conflict summary: ${warningMsg}`);
+
+			logDetailedConflicts(conflicts, zoneProgress);
+			logConflictResolutionAdvice(context.conflictResolution || "skip", zoneProgress);
+		}
+	} else if (context.verbose && totalConflicts > 0) {
+		console.log(
+			`${zoneProgress}   ✅ Found ${totalConflicts} existing records with same names, but all have matching content`,
+		);
+	}
+}
+
+/**
+ * Log detailed conflict information
+ */
+function logDetailedConflicts(conflicts: ConflictDetails[], zoneProgress: string): void {
+	for (const conflict of conflicts) {
+		console.log(`${zoneProgress}   ⚠️  Migration conflict detected: ${conflict.recordType} ${conflict.recordName}`);
+		console.log(`${zoneProgress}       Existing INWX records: ${conflict.conflictingInwxRecords.length}`);
+		console.log(`${zoneProgress}       MIAB records to migrate: ${conflict.miabRecords.length}`);
+
+		logRecordExamples(conflict, zoneProgress);
+	}
+}
+
+/**
+ * Log examples of conflicting records
+ */
+function logRecordExamples(conflict: ConflictDetails, zoneProgress: string): void {
+	const maxShow = 2;
+
+	console.log(`${zoneProgress}       Existing INWX content:`);
+	for (let i = 0; i < Math.min(maxShow, conflict.conflictingInwxRecords.length); i++) {
+		console.log(`${zoneProgress}         - ${conflict.conflictingInwxRecords[i].content || ""}`);
+	}
+	if (conflict.conflictingInwxRecords.length > maxShow) {
+		console.log(`${zoneProgress}         ... and ${conflict.conflictingInwxRecords.length - maxShow} more`);
+	}
+
+	console.log(`${zoneProgress}       New MIAB content:`);
+	for (let i = 0; i < Math.min(maxShow, conflict.miabRecords.length); i++) {
+		console.log(`${zoneProgress}         - ${conflict.miabRecords[i].value}`);
+	}
+	if (conflict.miabRecords.length > maxShow) {
+		console.log(`${zoneProgress}         ... and ${conflict.miabRecords.length - maxShow} more`);
+	}
+}
+
+/**
+ * Log conflict resolution strategy advice
+ */
+function logConflictResolutionAdvice(strategy: string, zoneProgress: string): void {
+	switch (strategy) {
+		case "overwrite":
+			console.log(
+				`${zoneProgress}   💡 With --conflict-resolution=overwrite, existing records will be replaced with MIAB values.`,
+			);
+			break;
+		case "interactive":
+			console.log(
+				`${zoneProgress}   💡 With --conflict-resolution=interactive, you'll be prompted for each conflicting record.`,
+			);
+			break;
+		default:
+			console.log(
+				`${zoneProgress}   💡 With --conflict-resolution=skip (current), MIAB records will be skipped where conflicts exist.`,
+			);
+			console.log(
+				`${zoneProgress}       For server migration, consider using --conflict-resolution=overwrite to replace old server records.`,
+			);
+			break;
+	}
 }
 
 /**
@@ -543,23 +784,23 @@ async function checkDomainRegistration(
 	const result = { success: true, warnings: [] as string[] };
 
 	try {
-		const domainListResponse = await inwxClient.callApi("domain.list", {});
+		const domainsResult = await getAllDomains(inwxClient);
 
-		if (domainListResponse.code === INWX_SUCCESS_CODE && domainListResponse.resData?.domains) {
-			const registeredDomains = domainListResponse.resData.domains;
-			const isDomainRegistered = registeredDomains.some(
-				(registeredDomain: { domain: string }) => registeredDomain.domain === domain,
-			);
+		if (domainsResult.success && domainsResult.domains) {
+			const isDomainRegistered = domainsResult.domains.includes(domain);
 
 			if (!isDomainRegistered) {
 				result.success = false;
 				result.warnings.push(`Domain ${domain} is not registered in your INWX account - cannot create DNS zone`);
 				if (context.verbose) {
 					console.log(`${zoneProgress}   ⚠️  Domain ${domain} is not registered in your INWX account`);
+					console.log(`${zoneProgress}      Available domains: ${domainsResult.domains.length} total`);
 				}
 			} else if (context.verbose) {
 				console.log(`${zoneProgress}   ✅ Domain ${domain} is registered, can create DNS zone`);
 			}
+		} else {
+			result.warnings.push(`Could not verify domain registration: ${domainsResult.error || "Unknown error"}`);
 		}
 	} catch (error) {
 		result.success = false;
@@ -669,197 +910,29 @@ async function migrateRecord(
 ): Promise<void> {
 	try {
 		if (context.dryRun) {
-			if (context.verbose) {
-				console.log(
-					`${zoneProgress}   [DRY RUN] Would create ${record.rtype} record: ${record.qname} -> ${record.value}`,
-				);
-			}
-			result.successfulRecords++;
+			handleDryRunRecord(record, result, context, zoneProgress);
 			return;
 		}
 
-		// Check if record already exists in INWX
-		const existingRecordResult = await findExistingInwxRecord(inwxClient, domain, record);
-		if (!existingRecordResult.success) {
-			result.failedRecords++;
-			result.errors.push(existingRecordResult.error);
-			if (context.verbose) {
-				console.error(`${zoneProgress}   ❌ ${existingRecordResult.error}`);
-			}
-			return;
+		const existingRecord = await findAndValidateExistingRecord(
+			inwxClient,
+			domain,
+			record,
+			result,
+			context,
+			zoneProgress,
+		);
+		if (existingRecord === false) {
+			return; // Error already handled
 		}
-
-		const existingRecord = existingRecordResult.data;
 
 		if (existingRecord) {
-			// Record exists, handle conflict resolution
-			const conflictResolution = context.conflictResolution || "skip";
-			const action = await resolveRecordConflict(
-				record,
-				existingRecord,
-				conflictResolution,
-				zoneProgress,
-				context.verbose,
-			);
-
-			if (action === "skip") {
-				result.skippedRecords++;
-				if (context.verbose) {
-					console.log(`${zoneProgress}   ⏭️  Skipped existing record: ${record.rtype} ${record.qname}`);
-				}
-				return;
-			} else if (action === "overwrite") {
-				// Update existing record
-				const updateResult = await updateInwxRecord(inwxClient, domain, existingRecord.id, record);
-				if (updateResult.success) {
-					result.updatedRecords++;
-					result.successfulRecords++;
-					if (context.verbose) {
-						let displayValue = record.value;
-						if (record.rtype === "MX") {
-							const params = buildRecordParams(record, domain);
-							displayValue = `${params.prio} ${params.content}`;
-						} else if (record.rtype === "SRV") {
-							const params = buildRecordParams(record, domain);
-							displayValue = `${params.prio} ${params.weight} ${params.port} ${params.content}`;
-						}
-						console.log(`${zoneProgress}   🔄 Updated ${record.rtype} record: ${record.qname} -> ${displayValue}`);
-					}
-				} else {
-					result.failedRecords++;
-					result.errors.push(updateResult.error);
-					if (context.verbose) {
-						console.error(`${zoneProgress}   ❌ Failed to update ${record.rtype} record: ${updateResult.error}`);
-					}
-				}
-				return;
-			}
+			await handleExistingRecord(record, domain, existingRecord, inwxClient, context, zoneProgress, result);
+			return;
 		}
 
 		// Record doesn't exist, create new one
-		const recordParams = buildRecordParams(record, domain);
-
-		// Add enhanced debug logging for SRV records, especially problematic ones
-		if (record.rtype === "SRV") {
-			const isProblematicRecord = record.qname.includes("_caldavs._tcp") || record.qname.includes("_carddavs._tcp");
-
-			// Validate SRV record parameters
-			const validation = validateSrvRecordParams(recordParams, record);
-
-			if (!validation.isValid) {
-				result.failedRecords++;
-				const errorMsg = `Invalid SRV record parameters for ${record.qname}: ${validation.issues.join(", ")}`;
-				result.errors.push(errorMsg);
-				if (context.verbose) {
-					console.error(`${zoneProgress}   ❌ ${errorMsg}`);
-					console.error(`${zoneProgress}   📝 Original value: "${record.value}"`);
-					console.error(`${zoneProgress}   🔧 Parsed params:`, JSON.stringify(recordParams, null, 2));
-				}
-				return;
-			}
-
-			if (context.verbose || isProblematicRecord) {
-				console.log(`${zoneProgress}   🔍 Creating SRV record: ${record.qname}`);
-				console.log(`${zoneProgress}   📝 Original value: "${record.value}"`);
-				console.log(`${zoneProgress}   🔧 Parsed params:`, JSON.stringify(recordParams, null, 2));
-				console.log(`${zoneProgress}   ✅ Parameter validation passed`);
-
-				if (isProblematicRecord) {
-					console.log(`${zoneProgress}   ⚠️  This is a known problematic record type (_caldavs/_carddavs)`);
-				}
-			}
-		}
-
-		let createResponse: { code: number; msg: string };
-		try {
-			createResponse = await inwxClient.callApi("nameserver.createRecord", recordParams);
-		} catch (apiError) {
-			// Handle JSON parsing errors and other API errors
-			const errorMessage = apiError instanceof Error ? apiError.message : "Unknown API error";
-
-			if (errorMessage.includes("Unexpected end of JSON input") || errorMessage.includes("JSON")) {
-				// For SRV records, try alternative parameter formatting as a workaround
-				if (record.rtype === "SRV") {
-					if (context.verbose) {
-						console.log(`${zoneProgress}   🔄 Retrying SRV record with alternative formatting...`);
-					}
-
-					try {
-						// Try alternative approach: combine weight, port, and content into a single content field
-						const { prio, weight, port, content } = parseSrvRecord(record.value);
-						const alternativeParams = {
-							domain,
-							type: record.rtype,
-							name: record.qname,
-							prio: prio,
-							content: `${weight} ${port} ${content}`,
-						};
-
-						if (context.verbose) {
-							console.log(`${zoneProgress}   🔧 Alternative params:`, JSON.stringify(alternativeParams, null, 2));
-						}
-
-						createResponse = await inwxClient.callApi("nameserver.createRecord", alternativeParams);
-
-						// If successful, handle the response and return
-						handleRecordCreationResponse(createResponse, record, alternativeParams, result, context, zoneProgress);
-						return;
-					} catch (retryError) {
-						if (context.verbose) {
-							console.error(
-								`${zoneProgress}   ❌ Alternative formatting also failed: ${retryError instanceof Error ? retryError.message : "Unknown error"}`,
-							);
-						}
-						// Fall through to original error handling
-					}
-				}
-
-				// JSON parsing error - likely empty response from INWX
-				result.failedRecords++;
-				const detailedError = `INWX API returned invalid JSON for ${record.rtype} record ${record.qname}. This might be a temporary API issue.`;
-				result.errors.push(detailedError);
-
-				if (context.verbose) {
-					console.error(
-						`${zoneProgress}   ❌ JSON parsing error for ${record.rtype} record ${record.qname}: ${errorMessage}`,
-					);
-					console.error(
-						`${zoneProgress}   📝 Record params that caused the error:`,
-						JSON.stringify(recordParams, null, 2),
-					);
-
-					// Additional debugging for SRV records
-					if (record.rtype === "SRV") {
-						console.error(`${zoneProgress}   🔍 SRV record debugging:`);
-						console.error(`${zoneProgress}       Original value: "${record.value}"`);
-						console.error(`${zoneProgress}       Parsed prio: ${recordParams.prio}`);
-						console.error(`${zoneProgress}       Parsed weight: ${recordParams.weight}`);
-						console.error(`${zoneProgress}       Parsed port: ${recordParams.port}`);
-						console.error(`${zoneProgress}       Parsed content: "${recordParams.content}"`);
-
-						// Check for potential issues with the parsed values
-						if (typeof recordParams.prio !== "number" || Number.isNaN(recordParams.prio as number)) {
-							console.error(`${zoneProgress}       ⚠️  Invalid priority value!`);
-						}
-						if (typeof recordParams.weight !== "number" || Number.isNaN(recordParams.weight as number)) {
-							console.error(`${zoneProgress}       ⚠️  Invalid weight value!`);
-						}
-						if (typeof recordParams.port !== "number" || Number.isNaN(recordParams.port as number)) {
-							console.error(`${zoneProgress}       ⚠️  Invalid port value!`);
-						}
-						if (!recordParams.content || typeof recordParams.content !== "string") {
-							console.error(`${zoneProgress}       ⚠️  Invalid content value!`);
-						}
-					}
-				}
-				return;
-			}
-
-			// Re-throw other errors to be handled by the outer catch block
-			throw apiError;
-		}
-
-		handleRecordCreationResponse(createResponse, record, recordParams, result, context, zoneProgress);
+		await createNewRecord(record, domain, inwxClient, context, zoneProgress, result);
 	} catch (error) {
 		result.failedRecords++;
 		const errorMsg = `Error processing ${record.rtype} record ${record.qname}: ${error instanceof Error ? error.message : "Unknown error"}`;
@@ -867,6 +940,236 @@ async function migrateRecord(
 		if (context.verbose) {
 			console.error(`${zoneProgress}   ❌ ${errorMsg}`);
 		}
+	}
+}
+
+/**
+ * Handle dry run mode for a record
+ */
+function handleDryRunRecord(
+	record: DnsRecord,
+	result: MigrationResult,
+	context: MigrationContext,
+	zoneProgress: string,
+): void {
+	if (context.verbose) {
+		console.log(`${zoneProgress}   [DRY RUN] Would create ${record.rtype} record: ${record.qname} -> ${record.value}`);
+	}
+	result.successfulRecords++;
+}
+
+/**
+ * Find and validate existing record, handling errors appropriately
+ */
+async function findAndValidateExistingRecord(
+	inwxClient: ApiClient,
+	domain: string,
+	record: DnsRecord,
+	result: MigrationResult,
+	context: MigrationContext,
+	zoneProgress: string,
+): Promise<ExistingInwxRecord | null | false> {
+	const existingRecordResult = await findExistingInwxRecord(inwxClient, domain, record);
+	if (!existingRecordResult.success) {
+		result.failedRecords++;
+		result.errors.push(existingRecordResult.error);
+		if (context.verbose) {
+			console.error(`${zoneProgress}   ❌ ${existingRecordResult.error}`);
+		}
+		return false; // Indicates error
+	}
+	return existingRecordResult.data;
+}
+
+/**
+ * Handle updating an existing record
+ */
+async function handleExistingRecord(
+	record: DnsRecord,
+	domain: string,
+	existingRecord: ExistingInwxRecord,
+	inwxClient: ApiClient,
+	context: MigrationContext,
+	zoneProgress: string,
+	result: MigrationResult,
+): Promise<void> {
+	const conflictResolution = context.conflictResolution || "skip";
+	const action = await resolveRecordConflict(record, existingRecord, conflictResolution, zoneProgress, context.verbose);
+
+	if (action === "skip") {
+		result.skippedRecords++;
+		if (context.verbose) {
+			console.log(`${zoneProgress}   ⏭️  Skipped existing record: ${record.rtype} ${record.qname}`);
+		}
+		return;
+	}
+
+	if (action === "overwrite") {
+		const updateResult = await updateInwxRecord(inwxClient, domain, existingRecord.id, record);
+		if (updateResult.success) {
+			result.updatedRecords++;
+			result.successfulRecords++;
+			if (context.verbose) {
+				const displayValue = buildDisplayValue(record, domain);
+				console.log(`${zoneProgress}   🔄 Updated ${record.rtype} record: ${record.qname} -> ${displayValue}`);
+			}
+		} else {
+			result.failedRecords++;
+			result.errors.push(updateResult.error);
+			if (context.verbose) {
+				console.error(`${zoneProgress}   ❌ Failed to update ${record.rtype} record: ${updateResult.error}`);
+			}
+		}
+	}
+}
+
+/**
+ * Build display value for logging
+ */
+function buildDisplayValue(record: DnsRecord, domain: string): string {
+	let displayValue = record.value;
+	if (record.rtype === "MX") {
+		const params = buildRecordParams(record, domain);
+		displayValue = `${params.prio} ${params.content}`;
+	} else if (record.rtype === "SRV") {
+		const params = buildRecordParams(record, domain);
+		displayValue = `${params.prio} ${params.weight} ${params.port} ${params.content}`;
+	}
+	return displayValue;
+}
+
+/**
+ * Create a new DNS record
+ */
+async function createNewRecord(
+	record: DnsRecord,
+	domain: string,
+	inwxClient: ApiClient,
+	context: MigrationContext,
+	zoneProgress: string,
+	result: MigrationResult,
+): Promise<void> {
+	const recordParams = buildRecordParams(record, domain);
+
+	// Validate SRV records before creating
+	if (record.rtype === "SRV") {
+		const validationResult = validateSrvRecord(record, recordParams, context, zoneProgress);
+		if (!validationResult.isValid) {
+			result.failedRecords++;
+			result.errors.push(validationResult.error);
+			return;
+		}
+	}
+
+	try {
+		const createResponse = await createRecordWithRetry(record, domain, recordParams, inwxClient, context, zoneProgress);
+		handleRecordCreationResponse(createResponse, record, recordParams, result, context, zoneProgress);
+	} catch (error) {
+		result.failedRecords++;
+		const detailedError = `INWX API returned invalid JSON for ${record.rtype} record ${record.qname}. This might be a temporary API issue.`;
+		result.errors.push(detailedError);
+
+		if (context.verbose) {
+			const errorMessage = error instanceof Error ? error.message : "Unknown error";
+			console.error(
+				`${zoneProgress}   ❌ JSON parsing error for ${record.rtype} record ${record.qname}: ${errorMessage}`,
+			);
+			console.error(`${zoneProgress}   📝 Record params that caused the error:`, JSON.stringify(recordParams, null, 2));
+		}
+	}
+}
+
+/**
+ * Validate SRV record parameters and log debugging info
+ */
+function validateSrvRecord(
+	record: DnsRecord,
+	recordParams: Record<string, unknown>,
+	context: MigrationContext,
+	zoneProgress: string,
+): { isValid: boolean; error: string } {
+	const isProblematicRecord = record.qname.includes("_caldavs._tcp") || record.qname.includes("_carddavs._tcp");
+
+	// Validate SRV record parameters
+	const validation = validateSrvRecordParams(recordParams, record);
+
+	if (!validation.isValid) {
+		const errorMsg = `Invalid SRV record parameters for ${record.qname}: ${validation.issues.join(", ")}`;
+		if (context.verbose) {
+			console.error(`${zoneProgress}   ❌ ${errorMsg}`);
+			console.error(`${zoneProgress}   📝 Original value: "${record.value}"`);
+			console.error(`${zoneProgress}   🔧 Parsed params:`, JSON.stringify(recordParams, null, 2));
+		}
+		return { isValid: false, error: errorMsg };
+	}
+
+	if (context.verbose || isProblematicRecord) {
+		console.log(`${zoneProgress}   🔍 Creating SRV record: ${record.qname}`);
+		console.log(`${zoneProgress}   📝 Original value: "${record.value}"`);
+		console.log(`${zoneProgress}   🔧 Parsed params:`, JSON.stringify(recordParams, null, 2));
+		console.log(`${zoneProgress}   ✅ Parameter validation passed`);
+
+		if (isProblematicRecord) {
+			console.log(`${zoneProgress}   ⚠️  This is a known problematic record type (_caldavs/_carddavs)`);
+		}
+	}
+
+	return { isValid: true, error: "" };
+}
+
+/**
+ * Create record with retry logic for SRV records
+ */
+async function createRecordWithRetry(
+	record: DnsRecord,
+	domain: string,
+	recordParams: Record<string, unknown>,
+	inwxClient: ApiClient,
+	context: MigrationContext,
+	zoneProgress: string,
+): Promise<{ code: number; msg: string }> {
+	try {
+		return await inwxClient.callApi("nameserver.createRecord", recordParams);
+	} catch (apiError) {
+		const errorMessage = apiError instanceof Error ? apiError.message : "Unknown API error";
+
+		// For SRV records with JSON errors, try alternative formatting
+		if (
+			record.rtype === "SRV" &&
+			(errorMessage.includes("Unexpected end of JSON input") || errorMessage.includes("JSON"))
+		) {
+			if (context.verbose) {
+				console.log(`${zoneProgress}   🔄 Retrying SRV record with alternative formatting...`);
+			}
+
+			try {
+				const { prio, weight, port, content } = parseSrvRecord(record.value);
+				const alternativeParams = {
+					domain,
+					type: record.rtype,
+					name: record.qname,
+					prio: prio,
+					content: `${weight} ${port} ${content}`,
+				};
+
+				if (context.verbose) {
+					console.log(`${zoneProgress}   🔧 Alternative params:`, JSON.stringify(alternativeParams, null, 2));
+				}
+
+				return await inwxClient.callApi("nameserver.createRecord", alternativeParams);
+			} catch (retryError) {
+				if (context.verbose) {
+					console.error(
+						`${zoneProgress}   ❌ Alternative formatting also failed: ${retryError instanceof Error ? retryError.message : "Unknown error"}`,
+					);
+				}
+				// Re-throw original error
+				throw apiError;
+			}
+		}
+
+		// Re-throw other errors
+		throw apiError;
 	}
 }
 
