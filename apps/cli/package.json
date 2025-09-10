@@ -12,8 +12,8 @@
 		"check:types": "tsc"
 	},
 	"dependencies": {
-		"@dotenvx/dotenvx": "^1.47.4",
-		"@inquirer/prompts": "^7.6.0",
+		"@dotenvx/dotenvx": "^1.49.0",
+		"@inquirer/prompts": "^7.8.4",
 		"@miab-inwx/inwx-client": "workspace:*",
 		"@miab-inwx/miab-client": "workspace:*",
 		"domrobot-client": "^3.3.0",
@@ -22,8 +22,8 @@
 	},
 	"devDependencies": {
 		"@types/minimatch": "^6.0.0",
-		"@types/node": "^24.0.12",
+		"@types/node": "^24.3.1",
 		"@types/yargs": "^17.0.33",
-		"typescript": "^5.0.0"
+		"typescript": "^5.9.2"
 	}
 }
