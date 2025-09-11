@@ -14,6 +14,9 @@ import {
 	convertRawRecordToDnsRecord,
 	findMatchingRecord,
 	getDomainName,
+	normalizeRecordName,
+	allowsMultipleRecords,
+	createExistingInwxRecord,
 } from "./dns-helpers.ts";
 import { cleanSshfpRecord, parseMxRecord, parseSrvRecord } from "./record-parsers.ts";
 
@@ -40,6 +43,7 @@ export async function findExistingInwxRecord(
 	client: ApiClient,
 	domain: string,
 	miabRecord: DnsRecord,
+	options?: { allowMulti?: boolean },
 ): Promise<CommandResult<ExistingInwxRecord | null>> {
 	try {
 		let recordsResponse: InwxNameserverInfoResponse;
@@ -61,9 +65,33 @@ export async function findExistingInwxRecord(
 		}
 
 		const records = recordsResponse.resData?.record || [];
-		const matchingRecord = findMatchingRecord(records, miabRecord);
 
-		return { success: true, data: matchingRecord };
+		// First try exact content match
+		const exact = findMatchingRecord(records, miabRecord);
+		if (exact) return { success: true, data: exact };
+
+		// Otherwise, find name+type matches
+		const normalizedMiabName = normalizeRecordName(miabRecord.qname);
+		const candidates = records.filter((r) => {
+			const sameName = normalizeRecordName(r.name || "") === normalizedMiabName;
+			return sameName && (r.type || "") === miabRecord.rtype;
+		});
+
+		if (candidates.length === 0) {
+			return { success: true, data: null };
+		}
+
+		// If type allows multiple values (e.g., TXT), only treat as existing when identical; else, if overwrite desired,
+		// caller will replace; default behavior here: return first candidate so caller can decide
+		const allowMulti = options?.allowMulti ?? allowsMultipleRecords(miabRecord.rtype);
+
+		if (allowMulti) {
+			// For multi-allowed types, don't treat non-identical as existing to avoid unintended replacement
+			return { success: true, data: null };
+		}
+
+		// For single-value types (A/AAAA/CNAME/MX/SRV/NS), treat any name+type match as existing so it can be updated
+		return { success: true, data: createExistingInwxRecord(candidates[0]) };
 	} catch (error) {
 		return {
 			success: false,

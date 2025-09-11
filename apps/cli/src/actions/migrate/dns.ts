@@ -83,6 +83,7 @@ export async function migrateDnsRecords(options: MigrateDnsOptions): Promise<Com
 			dryRun,
 			verbose: miab.verbose || false,
 			conflictResolution: options.conflictResolution || "skip",
+			purgeExisting: options.purgeExisting || false,
 			include,
 			exclude,
 		};
@@ -424,6 +425,16 @@ async function migrateZone(
 		result.errors.push(...zoneSetupResult.errors);
 		result.warnings.push(...zoneSetupResult.warnings);
 		return result;
+	}
+
+	// Purge existing records if requested
+	if (context.purgeExisting) {
+		const purgeOutcome = await purgeExistingZoneRecords(zone.domain, inwxClient, context, zoneProgress);
+		result.warnings.push(...purgeOutcome.warnings);
+		if (!purgeOutcome.success) {
+			result.errors.push(...purgeOutcome.errors);
+			return result;
+		}
 	}
 
 	// Check for existing records that might conflict with migration
@@ -932,6 +943,9 @@ async function migrateRecord(
 		}
 
 		// Record doesn't exist, create new one
+		if (context.conflictResolution === "overwrite") {
+			await deleteConflictingCnameIfNeeded(record, domain, inwxClient, context, zoneProgress, result);
+		}
 		await createNewRecord(record, domain, inwxClient, context, zoneProgress, result);
 	} catch (error) {
 		result.failedRecords++;
@@ -969,7 +983,9 @@ async function findAndValidateExistingRecord(
 	context: MigrationContext,
 	zoneProgress: string,
 ): Promise<ExistingInwxRecord | null | false> {
-	const existingRecordResult = await findExistingInwxRecord(inwxClient, domain, record);
+	const existingRecordResult = await findExistingInwxRecord(inwxClient, domain, record, {
+		allowMulti: record.rtype === "TXT",
+	});
 	if (!existingRecordResult.success) {
 		result.failedRecords++;
 		result.errors.push(existingRecordResult.error);
@@ -1032,8 +1048,8 @@ function buildDisplayValue(record: DnsRecord, domain: string): string {
 		const params = buildRecordParams(record, domain);
 		displayValue = `${params.prio} ${params.content}`;
 	} else if (record.rtype === "SRV") {
-		const params = buildRecordParams(record, domain);
-		displayValue = `${params.prio} ${params.weight} ${params.port} ${params.content}`;
+		const { prio, weight, port, content } = parseSrvRecord(record.value);
+		displayValue = `${prio} ${weight} ${port} ${content}`;
 	}
 	return displayValue;
 }
@@ -1088,7 +1104,7 @@ function validateSrvRecord(
 	context: MigrationContext,
 	zoneProgress: string,
 ): { isValid: boolean; error: string } {
-	const isProblematicRecord = record.qname.includes("_caldavs._tcp") || record.qname.includes("_carddavs._tcp");
+
 
 	// Validate SRV record parameters
 	const validation = validateSrvRecordParams(recordParams, record);
@@ -1103,15 +1119,11 @@ function validateSrvRecord(
 		return { isValid: false, error: errorMsg };
 	}
 
-	if (context.verbose || isProblematicRecord) {
+	if (context.verbose) {
 		console.log(`${zoneProgress}   🔍 Creating SRV record: ${record.qname}`);
 		console.log(`${zoneProgress}   📝 Original value: "${record.value}"`);
 		console.log(`${zoneProgress}   🔧 Parsed params:`, JSON.stringify(recordParams, null, 2));
 		console.log(`${zoneProgress}   ✅ Parameter validation passed`);
-
-		if (isProblematicRecord) {
-			console.log(`${zoneProgress}   ⚠️  This is a known problematic record type (_caldavs/_carddavs)`);
-		}
 	}
 
 	return { isValid: true, error: "" };
@@ -1128,47 +1140,35 @@ async function createRecordWithRetry(
 	context: MigrationContext,
 	zoneProgress: string,
 ): Promise<{ code: number; msg: string }> {
+	// Helper to strip domain suffix from qname for relative names
+	const toRelativeName = (fullName: string, zoneDomain: string): string => {
+		const suffix = `.${zoneDomain}`;
+		return fullName.endsWith(suffix) ? fullName.slice(0, -suffix.length) : fullName;
+	};
+
 	try {
-		return await inwxClient.callApi("nameserver.createRecord", recordParams);
-	} catch (apiError) {
-		const errorMessage = apiError instanceof Error ? apiError.message : "Unknown API error";
-
-		// For SRV records with JSON errors, try alternative formatting
-		if (
-			record.rtype === "SRV" &&
-			(errorMessage.includes("Unexpected end of JSON input") || errorMessage.includes("JSON"))
-		) {
-			if (context.verbose) {
-				console.log(`${zoneProgress}   🔄 Retrying SRV record with alternative formatting...`);
-			}
-
-			try {
-				const { prio, weight, port, content } = parseSrvRecord(record.value);
-				const alternativeParams = {
-					domain,
-					type: record.rtype,
-					name: record.qname,
-					prio: prio,
-					content: `${weight} ${port} ${content}`,
-				};
-
-				if (context.verbose) {
-					console.log(`${zoneProgress}   🔧 Alternative params:`, JSON.stringify(alternativeParams, null, 2));
-				}
-
-				return await inwxClient.callApi("nameserver.createRecord", alternativeParams);
-			} catch (retryError) {
-				if (context.verbose) {
-					console.error(
-						`${zoneProgress}   ❌ Alternative formatting also failed: ${retryError instanceof Error ? retryError.message : "Unknown error"}`,
-					);
-				}
-				// Re-throw original error
-				throw apiError;
-			}
+		if (record.rtype !== "SRV") {
+			return await inwxClient.callApi("nameserver.createRecord", recordParams);
 		}
 
-		// Re-throw other errors
+		// SRV: use relative name + combined content "weight port target" (with trailing dot if given)
+		const { prio, weight, port, content } = parseSrvRecord(record.value);
+		const relativeName = toRelativeName(String(recordParams.name ?? record.qname), domain);
+		const contentWithDot = typeof content === "string" && /\.$/.test(content) ? content : `${content}.`;
+		const params = {
+			domain,
+			type: "SRV",
+			name: relativeName,
+			prio,
+			content: `${weight} ${port} ${contentWithDot}`,
+		};
+
+		if (context.verbose) {
+			console.log(`${zoneProgress}   🔧 Using canonical SRV params:`, JSON.stringify(params, null, 2));
+		}
+
+		return await inwxClient.callApi("nameserver.createRecord", params);
+	} catch (apiError) {
 		throw apiError;
 	}
 }
@@ -1345,6 +1345,107 @@ function handlePolicyViolation(
 		if (context.verbose) {
 			console.error(`${zoneProgress}   ❌ ${errorMsg}`);
 		}
+	}
+}
+
+/**
+ * Purge existing records in a zone (except SOA and NS)
+ */
+async function purgeExistingZoneRecords(
+	domain: string,
+	inwxClient: ApiClient,
+	context: MigrationContext,
+	zoneProgress: string,
+): Promise<{ success: boolean; errors: string[]; warnings: string[] }> {
+	const outcome = { success: true, errors: [] as string[], warnings: [] as string[] };
+
+	try {
+		if (context.dryRun) {
+			if (context.verbose) {
+				console.log(`${zoneProgress}   [DRY RUN] Would purge existing records for ${domain} (keep SOA/NS)`);
+			}
+			outcome.warnings.push(`Zone ${domain} would be purged (SOA/NS preserved)`);
+			return outcome;
+		}
+
+		const info = await inwxClient.callApi("nameserver.info", { domain });
+		if (info.code !== INWX_SUCCESS_CODE) {
+			outcome.success = false;
+			outcome.errors.push(`Failed to fetch records for purge: ${info.msg}`);
+			return outcome;
+		}
+
+		const records = info.resData?.record || [];
+		const toDelete = records.filter((r: { type?: string }) => r.type !== "SOA" && r.type !== "NS");
+
+		for (const rec of toDelete) {
+			if (!rec.id) continue;
+			const resp = await inwxClient.callApi("nameserver.deleteRecord", { id: rec.id });
+			if (resp.code !== INWX_SUCCESS_CODE) {
+				outcome.success = false;
+				outcome.errors.push(`Failed to delete record ${rec.type} ${rec.name}: ${resp.msg}`);
+			}
+		}
+
+		if (context.verbose) {
+			console.log(`${zoneProgress}   🧹 Purged ${toDelete.length} records in ${domain} (SOA/NS kept)`);
+		}
+	} catch (error) {
+		outcome.success = false;
+		outcome.errors.push(
+			`Error purging records for ${domain}: ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
+	}
+
+	return outcome;
+}
+
+/**
+ * Delete conflicting CNAME when creating MX (or other non-CNAME) in overwrite mode
+ */
+async function deleteConflictingCnameIfNeeded(
+	record: DnsRecord,
+	domain: string,
+	inwxClient: ApiClient,
+	context: MigrationContext,
+	zoneProgress: string,
+	result: MigrationResult,
+): Promise<void> {
+	try {
+		// Only relevant when creating an MX or other non-CNAME record
+		if (record.rtype === "CNAME") return;
+
+		const info = await inwxClient.callApi("nameserver.info", { domain });
+		if (info.code !== INWX_SUCCESS_CODE) return;
+
+		const cname = (info.resData?.record || []).find(
+			(r: { name?: string; type?: string }) => (r.name || "").replace(/\.$/, "") === record.qname.replace(/\.$/, "") && r.type === "CNAME",
+		);
+
+		if (!cname) return;
+
+		if (context.dryRun) {
+			if (context.verbose) {
+				console.log(`${zoneProgress}   [DRY RUN] Would delete conflicting CNAME before creating ${record.rtype} ${record.qname}`);
+			}
+			result.warnings.push(`Would delete conflicting CNAME for ${record.qname}`);
+			return;
+		}
+
+		const del = await inwxClient.callApi("nameserver.deleteRecord", { id: cname.id });
+		if (del.code === INWX_SUCCESS_CODE) {
+			if (context.verbose) {
+				console.log(`${zoneProgress}   🧹 Deleted conflicting CNAME for ${record.qname}`);
+			}
+		} else {
+			result.errors.push(`Failed to delete conflicting CNAME for ${record.qname}: ${del.msg}`);
+			result.failedRecords++;
+		}
+	} catch (error) {
+		result.errors.push(
+			`Error deleting conflicting CNAME for ${record.qname}: ${error instanceof Error ? error.message : "Unknown error"}`,
+		);
+		result.failedRecords++;
 	}
 }
 

@@ -84,12 +84,28 @@ yarn workspace @miab-inwx/cli start inwx status --verbose
 # Dry run (test without making changes)
 yarn workspace @miab-inwx/cli start migrate dns --dry-run
 
-# Actual migration
+# Actual migration (OTE by default)
 yarn workspace @miab-inwx/cli start migrate dns
 
-# Force migration with verbose output
-yarn workspace @miab-inwx/cli start migrate dns --force --verbose
+# Production migration
+yarn workspace @miab-inwx/cli start migrate dns --environment live
+
+# Overwrite conflicts and purge existing records first (keeps SOA/NS)
+yarn workspace @miab-inwx/cli start migrate dns --environment live --conflict-resolution=overwrite --purge-existing
 ```
+
+### Migration Options
+
+- **--environment [ote|live]**: INWX environment (default: `ote`)
+- **--conflict-resolution [skip|overwrite|interactive]**:
+  - `skip`: keep existing INWX records
+  - `overwrite`: replace conflicting records with MIAB values
+  - `interactive`: prompt per conflict
+- **--purge-existing**: Delete all existing records in the zone before migration (SOA/NS preserved)
+- **--include**: Glob patterns for domains to include (default: `*`)
+- **--exclude**: Glob patterns for domains to exclude
+- **--dry-run**: Show actions without making changes
+- **--verbose**: Detailed logs
 
 ### Environment Variables
 
@@ -135,28 +151,30 @@ yarn workspace @miab-inwx/cli start migrate dns --dry-run
 # 3. Actual migration (test environment)
 yarn workspace @miab-inwx/cli start migrate dns
 
-# 4. For production (update INWX_ENVIRONMENT=live in .env)
-yarn workspace @miab-inwx/cli start migrate dns --dry-run
-yarn workspace @miab-inwx/cli start migrate dns
+# 4. For production (set INWX_ENVIRONMENT=live in .env or --environment live)
+yarn workspace @miab-inwx/cli start migrate dns --environment live
+
+# 5. Optional: purge existing records and overwrite conflicts
+yarn workspace @miab-inwx/cli start migrate dns --environment live --purge-existing --conflict-resolution=overwrite
 ```
+
+## SRV Record Handling
+
+- SRV records are created with:
+  - Relative name (e.g., `_caldavs._tcp`)
+  - Content formatted as `weight port target`
+  - Target normalized with a trailing dot during creation
+- This matches what the INWX UI stores (and avoids API errors like "Unknown command").
 
 ## Error Handling
 
-If you encounter credential errors, the CLI will show helpful messages:
-
-```bash
-❌ Missing required INWX environment variables: INWX_USERNAME, INWX_PASSWORD
-
-💡 Make sure you have a .env file with the required INWX credentials:
-Example .env file content:
-...
-```
+If you encounter credential or API errors, the CLI will show helpful messages. Use `--verbose` for more details.
 
 ## Security Notes
 
 - Never commit your `.env` file to version control
-- Use test environment (`INWX_ENVIRONMENT=ote`) for testing
-- Always run `--dry-run` before actual migration
+- Use the test environment for trial runs
+- Always run `--dry-run` before production migrations
 - Keep your credentials secure and rotate them regularly
 
 ## Development
@@ -166,4 +184,4 @@ To run the CLI in development mode:
 ```bash
 cd apps/cli
 node --experimental-specifier-resolution=node --experimental-strip-types --experimental-transform-types --no-warnings ./src/index.ts --help
-``` 
+```

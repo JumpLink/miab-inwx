@@ -13,6 +13,10 @@ export interface MigrateDnsOptions {
 	dryRun?: boolean;
 	conflictResolution?: ConflictResolutionStrategy;
 	/**
+	 * When true, purge existing DNS records before migration (keep SOA/NS)
+	 */
+	purgeExisting?: boolean;
+	/**
 	 * Glob patterns for domains to include in migration. Default: ["*"] (all domains)
 	 */
 	include?: string[];
@@ -52,6 +56,10 @@ export interface MigrationContext {
 	dryRun: boolean;
 	verbose: boolean;
 	conflictResolution: ConflictResolutionStrategy;
+	/**
+	 * Whether to purge existing records (except SOA/NS) before migration
+	 */
+	purgeExisting?: boolean;
 	/**
 	 * Glob patterns for domains to include in migration
 	 */

@@ -9,6 +9,7 @@ interface DnsOptions {
 	verbose?: boolean;
 	environment?: "ote" | "live";
 	"conflict-resolution"?: ConflictResolutionStrategy;
+	"purge-existing"?: boolean;
 	include?: string[];
 	exclude?: string[];
 }
@@ -43,6 +44,11 @@ export function dnsCommand(yargs: Argv): void {
 					description: "How to handle conflicting DNS records",
 					default: "skip" as ConflictResolutionStrategy,
 				})
+				.option("purge-existing", {
+					type: "boolean",
+					description: "Delete all existing DNS records in INWX zone before migration (keeps SOA/NS)",
+					default: false,
+				})
 				.option("include", {
 					type: "array",
 					description: "Glob patterns for domains to include (default: * for all domains)",
@@ -59,6 +65,7 @@ export function dnsCommand(yargs: Argv): void {
 				.example("$0 migrate dns --environment ote", "Migrate DNS records to OTE environment")
 				.example("$0 migrate dns --conflict-resolution=overwrite", "Overwrite conflicting records")
 				.example("$0 migrate dns --conflict-resolution=interactive", "Ask for each conflicting record")
+				.example("$0 migrate dns --purge-existing", "Purge existing records before migration (keeps SOA/NS)")
 				.example("$0 migrate dns --verbose", "Migration with verbose output")
 				.example("$0 migrate dns --include=*.de", "Migrate only .de domains")
 				.example("$0 migrate dns --include=box.*.de", "Migrate only box.*.de domains")
@@ -110,6 +117,10 @@ export function dnsCommand(yargs: Argv): void {
 					console.log("   These domains will be skipped during migration");
 				}
 
+				if (options["purge-existing"]) {
+					console.log("🧹 Purge enabled: Existing records will be deleted before migration (SOA/NS kept)");
+				}
+
 				console.log("\n🔧 Initializing connections...");
 				console.log(`   MIAB Server: ${miabConnection.apiUrl}`);
 				console.log(`   INWX Environment: ${inwxConnection.environment.toUpperCase()}`);
@@ -121,6 +132,7 @@ export function dnsCommand(yargs: Argv): void {
 					inwx: inwxConnection,
 					dryRun: options["dry-run"],
 					conflictResolution: options["conflict-resolution"],
+					purgeExisting: options["purge-existing"],
 					include: options.include,
 					exclude: options.exclude,
 				});
