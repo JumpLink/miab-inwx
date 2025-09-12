@@ -28,7 +28,12 @@ export function compareMxRecordContent(miabRecord: DnsRecord, inwxRecord: Existi
 	const differences: string[] = [];
 	const miabMx = parseMxRecord(miabRecord.value);
 
-	if (miabMx.prio !== inwxRecord.prio) {
+	// Treat null MX (".") with missing/zero priority as equivalent
+	const miabIsNullMx = miabMx.content.trim() === ".";
+	const inwxIsNullMx = normalizeRecordContent(inwxRecord.content) === ".";
+	const inwxPrio = inwxRecord.prio ?? 0;
+
+	if (!(miabIsNullMx && inwxIsNullMx) && miabMx.prio !== inwxPrio) {
 		differences.push(`MX Priority: MIAB="${miabMx.prio}" vs INWX="${inwxRecord.prio}"`);
 	}
 
@@ -74,30 +79,34 @@ export function compareSrvRecordComplexContent(
 	const differences: string[] = [];
 	const inwxParts = inwxRecord.content.trim().split(/\s+/);
 
-	if (inwxParts.length >= 2) {
+	if (inwxParts.length >= 3) {
+		// Format: weight port target
+		const inwxWeight = parseInt(inwxParts[0], 10);
+		const inwxPort = parseInt(inwxParts[1], 10);
+		const inwxTarget = inwxParts.slice(2).join(" ").replace(/\.$/, "");
+
+		if (miabSrv.weight !== inwxWeight) {
+			differences.push(`SRV Weight: MIAB="${miabSrv.weight}" vs INWX="${inwxWeight}"`);
+		}
+		if (miabSrv.port !== inwxPort) {
+			differences.push(`SRV Port: MIAB="${miabSrv.port}" vs INWX="${inwxPort}"`);
+		}
+		if (normalizedMiabContent !== inwxTarget) {
+			differences.push(`SRV Target: MIAB="${normalizedMiabContent}" vs INWX="${inwxTarget}"`);
+		}
+	} else if (inwxParts.length === 2) {
+		// Format: port target (weight omitted -> assume 0)
 		const inwxPort = parseInt(inwxParts[0], 10);
-		const inwxTarget = inwxParts.slice(1).join(" ").replace(/\.$/, "");
+		const inwxTarget = inwxParts[1].replace(/\.$/, "");
 
-		if (miabSrv.port === inwxPort && normalizedMiabContent === inwxTarget) {
-			if (miabSrv.weight !== 0) {
-				differences.push(`SRV Weight: MIAB="${miabSrv.weight}" vs INWX="0 (omitted)"`);
-			}
-		} else if (inwxParts.length >= 3) {
-			const inwxWeight = parseInt(inwxParts[0], 10);
-			const inwxPort2 = parseInt(inwxParts[1], 10);
-			const inwxTarget2 = inwxParts.slice(2).join(" ").replace(/\.$/, "");
-
-			if (miabSrv.weight !== inwxWeight) {
-				differences.push(`SRV Weight: MIAB="${miabSrv.weight}" vs INWX="${inwxWeight}"`);
-			}
-			if (miabSrv.port !== inwxPort2) {
-				differences.push(`SRV Port: MIAB="${miabSrv.port}" vs INWX="${inwxPort2}"`);
-			}
-			if (normalizedMiabContent !== inwxTarget2) {
-				differences.push(`SRV Target: MIAB="${normalizedMiabContent}" vs INWX="${inwxTarget2}"`);
-			}
-		} else {
-			differences.push(`Content: MIAB="${miabSrv.content}" vs INWX="${inwxRecord.content}"`);
+		if (miabSrv.port !== inwxPort) {
+			differences.push(`SRV Port: MIAB="${miabSrv.port}" vs INWX="${inwxPort}"`);
+		}
+		if (normalizedMiabContent !== inwxTarget) {
+			differences.push(`SRV Target: MIAB="${normalizedMiabContent}" vs INWX="${inwxTarget}"`);
+		}
+		if (miabSrv.weight !== 0) {
+			differences.push(`SRV Weight: MIAB="${miabSrv.weight}" vs INWX="0 (omitted)"`);
 		}
 	} else {
 		differences.push(`Content: MIAB="${miabSrv.content}" vs INWX="${inwxRecord.content}"`);

@@ -575,14 +575,51 @@ function checkForContentConflicts(
 	conflictingInwxRecords: Array<{ content?: string }>,
 ): boolean {
 	for (const miabRecord of miabRecords) {
+		const inwxContents = conflictingInwxRecords.map((r) => String(r.content || ""));
+
+		if (miabRecord.rtype === "MX") {
+			// Treat as matching if MX target equals (priority differences are not counted here)
+			const { content } = parseMxRecord(miabRecord.value);
+			const target = content.replace(/\.$/, "");
+			const hasMatch = inwxContents.some((c) => c.replace(/\.$/, "") === target);
+			if (hasMatch) {
+				return false; // no content conflict
+			}
+			continue;
+		}
+
+		if (miabRecord.rtype === "SRV") {
+			const { port, content } = parseSrvRecord(miabRecord.value);
+			const target = content.replace(/\.$/, "");
+			const hasSrvMatch = inwxContents.some((c) => {
+				const parts = c.trim().split(/\s+/);
+				if (parts.length >= 3) {
+					const inwxPort = parseInt(parts[1], 10);
+					const inwxTarget = parts.slice(2).join(" ").replace(/\.$/, "");
+					return inwxPort === port && inwxTarget === target;
+				}
+				if (parts.length === 2) {
+					const inwxPort = parseInt(parts[0], 10);
+					const inwxTarget = parts[1].replace(/\.$/, "");
+					return inwxPort === port && inwxTarget === target;
+				}
+				// If only target present (unlikely for SRV), compare target only
+				return parts.length === 1 && parts[0].replace(/\.$/, "") === target;
+			});
+			if (hasSrvMatch) {
+				return false; // no content conflict
+			}
+			continue;
+		}
+
 		const hasExactMatch = conflictingInwxRecords.some((inwxRecord) => {
 			return doesRecordContentMatch(miabRecord, { content: inwxRecord.content || "" });
 		});
-		if (!hasExactMatch) {
-			return true;
+		if (hasExactMatch) {
+			return false; // no content conflict
 		}
 	}
-	return false;
+	return true; // conflict remains
 }
 
 /**
@@ -1072,6 +1109,86 @@ async function createNewRecord(
 ): Promise<void> {
 	const recordParams = buildRecordParams(record, domain);
 
+	// TXT singleton semantics and MTA-STS gating
+	if (record.rtype === "TXT") {
+		const normalizedName = record.qname.replace(/\.$/, "");
+		const contentLc = record.value.trim().toLowerCase();
+
+		const isMtaStsName = normalizedName === `_mta-sts.${domain}`;
+		const isMtaStsContent = contentLc.startsWith("v=stsv1");
+		const isDmarc = contentLc.startsWith("v=dmarc");
+		const isSpf = contentLc.startsWith("v=spf1");
+		const isGoogle = contentLc.startsWith("google-site-") || contentLc.startsWith("google-site-verification=");
+		const isApple = contentLc.startsWith("apple-domain-verification=");
+		const isFacebook = contentLc.startsWith("facebook-domain-verification=") || contentLc.startsWith("meta-domain-verification=");
+		const isBing = contentLc.startsWith("msvalidate.") || contentLc.startsWith("bing-site-verification=");
+		const isZoho = contentLc.startsWith("zoho-verification=");
+		const isYandex = contentLc.startsWith("yandex-verification=");
+		const isMailRu = contentLc.startsWith("mailru-domain=");
+		const isCloudflare = contentLc.startsWith("ca3-");
+		const isAtlassian = contentLc.startsWith("atlassian-domain-verification=");
+		const isMS = contentLc.startsWith("MS=") || contentLc.startsWith("ms-site-validation=") || contentLc.startsWith("docusign=");
+
+		// Gate MTA-STS TXT on successful policy reachability
+		if (isMtaStsName || isMtaStsContent) {
+			const ok = await isMtaStsPolicyReachable(domain);
+			if (!ok) {
+				result.skippedRecords++;
+				result.warnings.push(
+					`Skipping MTA-STS TXT for ${normalizedName}: policy not reachable at https://mta-sts.${domain}/.well-known/mta-sts.txt`,
+				);
+				if (context.verbose) {
+					console.log(
+						`${zoneProgress}   ⚠️  Skipping MTA-STS TXT; policy not reachable at https://mta-sts.${domain}/.well-known/mta-sts.txt`,
+					);
+				}
+				return;
+			}
+		}
+
+		// Remove conflicting TXT entries by semantic prefix for same name
+		if (
+			isMtaStsName ||
+			isMtaStsContent ||
+			isDmarc ||
+			isSpf ||
+			isGoogle ||
+			isApple ||
+			isFacebook ||
+			isBing ||
+			isZoho ||
+			isYandex ||
+			isMailRu ||
+			isCloudflare ||
+			isAtlassian ||
+			isMS
+		) {
+			const prefixes = [
+				...(isMtaStsName || isMtaStsContent ? ["v=stsv1", "v=stsv1; id="] : []),
+				...(isDmarc ? ["v=dmarc"] : []),
+				...(isSpf ? ["v=spf1"] : []),
+				...(isGoogle ? ["google-site-", "google-site-verification="] : []),
+				...(isApple ? ["apple-domain-verification="] : []),
+				...(isFacebook ? ["facebook-domain-verification=", "meta-domain-verification="] : []),
+				...(isBing ? ["msvalidate.", "bing-site-verification="] : []),
+				...(isZoho ? ["zoho-verification="] : []),
+				...(isYandex ? ["yandex-verification="] : []),
+				...(isMailRu ? ["mailru-domain="] : []),
+				...(isCloudflare ? ["ca3-"] : []),
+				...(isAtlassian ? ["atlassian-domain-verification="] : []),
+				...(isMS ? ["MS=", "ms-site-validation=", "docusign="] : []),
+			];
+			await deleteExistingTxtRecordsByPrefix(
+				inwxClient,
+				domain,
+				normalizedName,
+				prefixes,
+				context,
+				result,
+			);
+		}
+	}
+
 	// Validate SRV records before creating
 	if (record.rtype === "SRV") {
 		const validationResult = validateSrvRecord(record, recordParams, context, zoneProgress);
@@ -1555,6 +1672,52 @@ async function fetchText(url: string, timeoutMs = 5000): Promise<{ status: numbe
 		});
 		req.end();
 	});
+}
+
+/**
+ * Check MTA-STS policy reachability (200-399 and contains version: STSv1)
+ */
+async function isMtaStsPolicyReachable(domain: string): Promise<boolean> {
+	try {
+		const url = `https://mta-sts.${domain}/.well-known/mta-sts.txt`;
+		const { status, body } = await fetchText(url, 5000);
+		return status >= 200 && status < 400 && /version:\s*STSv1/i.test(body);
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Delete existing TXT records with matching semantic prefixes for the same name
+ */
+async function deleteExistingTxtRecordsByPrefix(
+	inwxClient: ApiClient,
+	domain: string,
+	name: string,
+	prefixes: string[],
+	context: MigrationContext,
+	result: MigrationResult,
+): Promise<void> {
+	const info = await inwxClient.callApi("nameserver.info", { domain });
+	if (info.code !== INWX_SUCCESS_CODE) return;
+	const records = info.resData?.record || [];
+	const toDelete = records.filter(
+		(r: { id?: string; type?: string; name?: string; content?: string }) =>
+			r.type === "TXT" && (r.name || "").replace(/\.$/, "") === name && prefixes.some((p) => (r.content || "").toLowerCase().startsWith(p)),
+	);
+
+	for (const rec of toDelete) {
+		if (!rec.id) continue;
+		if (context.dryRun) {
+			result.warnings.push(`Would delete existing TXT for ${name} with prefix match`);
+			continue;
+		}
+		const del = await inwxClient.callApi("nameserver.deleteRecord", { id: rec.id });
+		if (del.code !== INWX_SUCCESS_CODE) {
+			result.errors.push(`Failed to delete TXT ${name}: ${del.msg}`);
+			result.failedRecords++;
+		}
+	}
 }
 
 /**
