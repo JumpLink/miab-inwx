@@ -12,8 +12,7 @@ interface CheckOptions {
 export function checkDomainsCommand(yargs: Argv): void {
 	yargs.command({
 		command: "check-domains",
-		describe:
-			"Check which MIAB domains exist as DNS zones in INWX (credentials from .env file)",
+		describe: "Check which MIAB domains exist as DNS zones in INWX (credentials from .env file)",
 		builder: (yargs: Argv) => {
 			return yargs
 				.group(["verbose", "environment"], "Options:")
@@ -39,10 +38,7 @@ export function checkDomainsCommand(yargs: Argv): void {
 					description: "Glob patterns for domains to exclude from the check",
 					coerce: (arg: string[]) => arg.flatMap((item: string) => item.split(",").map((d: string) => d.trim())),
 				})
-				.example(
-					"$0 migrate check-domains",
-					"Check which MIAB domains exist as INWX DNS zones",
-				)
+				.example("$0 migrate check-domains", "Check which MIAB domains exist as INWX DNS zones")
 				.example("$0 migrate check-domains --include=*.de", "Check only .de domains");
 		},
 		handler: async (args: unknown) => {
@@ -70,8 +66,8 @@ export function checkDomainsCommand(yargs: Argv): void {
 
 				console.log(`\n${result.message}`);
 				if (result.data) {
+					const present = result.data.domains.filter((d) => d.existsInInwx);
 					const missing = result.data.domains.filter((d) => !d.existsInInwx).map((d) => d.domain);
-					const present = result.data.domains.filter((d) => d.existsInInwx).map((d) => d.domain);
 
 					console.log("\n📊 Summary:");
 					console.log(
@@ -82,17 +78,40 @@ export function checkDomainsCommand(yargs: Argv): void {
 						`   Nameserver categories -> jumplink: ${c.jumplink}, box: ${c.box}, inwx: ${c.inwx}, other: ${c.other}, none: ${c.none}`,
 					);
 
-					if (present.length > 0) {
-						console.log("\n✅ Present in INWX:");
-						for (const d of present) {
-							const entry = result.data.domains.find((x) => x.domain === d);
-							console.log(`   - ${d}${entry?.nameservers?.length ? ` [NS: ${entry.nameservers.join(", ")}]` : ""}`);
+					const groups: Record<string, { title: string; items: typeof present }> = {
+						inwx: {
+							title: "✅ Present in INWX (INWX nameservers)",
+							items: present.filter((x) => x.nameserverCategory === "inwx"),
+						},
+						box: {
+							title: "✅ Present in INWX (box.mailfreun.de nameservers)",
+							items: present.filter((x) => x.nameserverCategory === "box"),
+						},
+						jumplink: {
+							title: "✅ Present in INWX (jumplink.me nameservers)",
+							items: present.filter((x) => x.nameserverCategory === "jumplink"),
+						},
+						other: {
+							title: "✅ Present in INWX (other nameservers)",
+							items: present.filter((x) => x.nameserverCategory === "other"),
+						},
+					};
+
+					for (const key of Object.keys(groups)) {
+						const group = groups[key as keyof typeof groups];
+						if (group.items.length > 0) {
+							console.log(`\n${group.title}:`);
+							for (const entry of group.items.sort((a, b) => a.domain.localeCompare(b.domain))) {
+								console.log(
+									`   - ${entry.domain}${entry.nameservers?.length ? ` [NS: ${entry.nameservers.join(", ")}]` : ""}`,
+								);
+							}
 						}
 					}
 
 					if (missing.length > 0) {
-						console.log("\n❌ Missing in INWX:");
-						for (const d of missing) console.log(`   - ${d}`);
+						console.log("\n❌ Missing in INWX (not registered):");
+						for (const d of missing.sort()) console.log(`   - ${d}`);
 					}
 				}
 			} catch (error) {
@@ -104,5 +123,3 @@ export function checkDomainsCommand(yargs: Argv): void {
 		},
 	});
 }
-
-

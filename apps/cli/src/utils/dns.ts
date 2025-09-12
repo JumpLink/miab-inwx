@@ -10,13 +10,13 @@ import type { CommandResult } from "../types/index.ts";
 import type { DnsRecord, DnsZone, ExistingInwxRecord } from "../types/migrate-dns.ts";
 import { INWX_SUCCESS_CODE, INWX_ZONE_NOT_FOUND_CODE } from "./constants.ts";
 import {
+	allowsMultipleRecords,
 	convertInwxRecordToDnsRecord,
 	convertRawRecordToDnsRecord,
+	createExistingInwxRecord,
 	findMatchingRecord,
 	getDomainName,
 	normalizeRecordName,
-	allowsMultipleRecords,
-	createExistingInwxRecord,
 } from "./dns-helpers.ts";
 import { cleanSshfpRecord, parseMxRecord, parseSrvRecord } from "./record-parsers.ts";
 

@@ -1,7 +1,7 @@
+import { request as httpsRequest } from "node:https";
 import { MiabClient } from "@miab-inwx/miab-client";
 import { ApiClient, Language } from "domrobot-client";
 import { minimatch } from "minimatch";
-import { request as httpsRequest } from "node:https";
 import type { CommandResult } from "../../types/index.ts";
 import type {
 	ApiClientConfig,
@@ -1120,14 +1120,16 @@ async function createNewRecord(
 		const isSpf = contentLc.startsWith("v=spf1");
 		const isGoogle = contentLc.startsWith("google-site-") || contentLc.startsWith("google-site-verification=");
 		const isApple = contentLc.startsWith("apple-domain-verification=");
-		const isFacebook = contentLc.startsWith("facebook-domain-verification=") || contentLc.startsWith("meta-domain-verification=");
+		const isFacebook =
+			contentLc.startsWith("facebook-domain-verification=") || contentLc.startsWith("meta-domain-verification=");
 		const isBing = contentLc.startsWith("msvalidate.") || contentLc.startsWith("bing-site-verification=");
 		const isZoho = contentLc.startsWith("zoho-verification=");
 		const isYandex = contentLc.startsWith("yandex-verification=");
 		const isMailRu = contentLc.startsWith("mailru-domain=");
 		const isCloudflare = contentLc.startsWith("ca3-");
 		const isAtlassian = contentLc.startsWith("atlassian-domain-verification=");
-		const isMS = contentLc.startsWith("MS=") || contentLc.startsWith("ms-site-validation=") || contentLc.startsWith("docusign=");
+		const isMS =
+			contentLc.startsWith("MS=") || contentLc.startsWith("ms-site-validation=") || contentLc.startsWith("docusign=");
 
 		// Gate MTA-STS TXT on successful policy reachability
 		if (isMtaStsName || isMtaStsContent) {
@@ -1178,14 +1180,7 @@ async function createNewRecord(
 				...(isAtlassian ? ["atlassian-domain-verification="] : []),
 				...(isMS ? ["MS=", "ms-site-validation=", "docusign="] : []),
 			];
-			await deleteExistingTxtRecordsByPrefix(
-				inwxClient,
-				domain,
-				normalizedName,
-				prefixes,
-				context,
-				result,
-			);
+			await deleteExistingTxtRecordsByPrefix(inwxClient, domain, normalizedName, prefixes, context, result);
 		}
 	}
 
@@ -1227,8 +1222,6 @@ function validateSrvRecord(
 	context: MigrationContext,
 	zoneProgress: string,
 ): { isValid: boolean; error: string } {
-
-
 	// Validate SRV record parameters
 	const validation = validateSrvRecordParams(recordParams, record);
 
@@ -1266,32 +1259,27 @@ async function createRecordWithRetry(
 		const suffix = `.${zoneDomain}`;
 		return fullName.endsWith(suffix) ? fullName.slice(0, -suffix.length) : fullName;
 	};
-
-	try {
-		if (record.rtype !== "SRV") {
-			return await inwxClient.callApi("nameserver.createRecord", recordParams);
-		}
-
-		// SRV: use relative name + combined content "weight port target" (with trailing dot if given)
-		const { prio, weight, port, content } = parseSrvRecord(record.value);
-		const relativeName = toRelativeName(String(recordParams.name ?? record.qname), domain);
-		const contentWithDot = typeof content === "string" && /\.$/.test(content) ? content : `${content}.`;
-		const params = {
-			domain,
-			type: "SRV",
-			name: relativeName,
-			prio,
-			content: `${weight} ${port} ${contentWithDot}`,
-		};
-
-		if (context.verbose) {
-			console.log(`${zoneProgress}   SRV canonical: name=${params.name} prio=${params.prio} content="${params.content}"`);
-		}
-
-		return await inwxClient.callApi("nameserver.createRecord", params);
-	} catch (apiError) {
-		throw apiError;
+	if (record.rtype !== "SRV") {
+		return await inwxClient.callApi("nameserver.createRecord", recordParams);
 	}
+
+	// SRV: use relative name + combined content "weight port target" (with trailing dot if given)
+	const { prio, weight, port, content } = parseSrvRecord(record.value);
+	const relativeName = toRelativeName(String(recordParams.name ?? record.qname), domain);
+	const contentWithDot = typeof content === "string" && /\.$/.test(content) ? content : `${content}.`;
+	const params = {
+		domain,
+		type: "SRV",
+		name: relativeName,
+		prio,
+		content: `${weight} ${port} ${contentWithDot}`,
+	};
+
+	if (context.verbose) {
+		console.log(`${zoneProgress}   SRV canonical: name=${params.name} prio=${params.prio} content="${params.content}"`);
+	}
+
+	return await inwxClient.callApi("nameserver.createRecord", params);
 }
 
 /**
@@ -1540,14 +1528,17 @@ async function deleteConflictingCnameIfNeeded(
 		if (info.code !== INWX_SUCCESS_CODE) return;
 
 		const cname = (info.resData?.record || []).find(
-			(r: { name?: string; type?: string }) => (r.name || "").replace(/\.$/, "") === record.qname.replace(/\.$/, "") && r.type === "CNAME",
+			(r: { name?: string; type?: string }) =>
+				(r.name || "").replace(/\.$/, "") === record.qname.replace(/\.$/, "") && r.type === "CNAME",
 		);
 
 		if (!cname) return;
 
 		if (context.dryRun) {
 			if (context.verbose) {
-				console.log(`${zoneProgress}   [DRY RUN] Would delete conflicting CNAME before creating ${record.rtype} ${record.qname}`);
+				console.log(
+					`${zoneProgress}   [DRY RUN] Would delete conflicting CNAME before creating ${record.rtype} ${record.qname}`,
+				);
 			}
 			result.warnings.push(`Would delete conflicting CNAME for ${record.qname}`);
 			return;
@@ -1703,7 +1694,9 @@ async function deleteExistingTxtRecordsByPrefix(
 	const records = info.resData?.record || [];
 	const toDelete = records.filter(
 		(r: { id?: string; type?: string; name?: string; content?: string }) =>
-			r.type === "TXT" && (r.name || "").replace(/\.$/, "") === name && prefixes.some((p) => (r.content || "").toLowerCase().startsWith(p)),
+			r.type === "TXT" &&
+			(r.name || "").replace(/\.$/, "") === name &&
+			prefixes.some((p) => (r.content || "").toLowerCase().startsWith(p)),
 	);
 
 	for (const rec of toDelete) {

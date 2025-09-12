@@ -25,17 +25,30 @@ export async function getAllDomains(
 				};
 			}
 
-			const domains = domainsResponse.resData?.domains;
-			if (!domains || !Array.isArray(domains)) {
+			// API returns resData.domain (singular). Some clients might expose resData.domains – support both.
+			const resData = domainsResponse.resData || {};
+			const items: unknown[] = Array.isArray((resData as { domain?: unknown[] }).domain)
+				? ((resData as { domain: unknown[] }).domain as unknown[])
+				: Array.isArray((resData as { domains?: unknown[] }).domains)
+					? ((resData as { domains: unknown[] }).domains as unknown[])
+					: [];
+
+			if (!items || items.length === 0) {
 				break; // No more domains
 			}
 
 			// Add domains from this page
-			const domainNames = domains.map((domain: { domain: string }) => domain.domain);
+			const domainNames = items
+				.map((item) => {
+					if (typeof item === "string") return item;
+					if (item && typeof item === "object" && "domain" in item) return String((item as { domain: unknown }).domain);
+					return null;
+				})
+				.filter((d): d is string => Boolean(d));
 			allDomains.push(...domainNames);
 
-			// If we got fewer domains than the page limit, we're done
-			if (domains.length < pageLimit) {
+			// If we got fewer items than the page limit, we're done
+			if (items.length < pageLimit) {
 				break;
 			}
 

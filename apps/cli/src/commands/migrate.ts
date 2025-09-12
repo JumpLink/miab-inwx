@@ -1,6 +1,6 @@
 import type { Argv } from "yargs";
-import { dnsCommand } from "./migrate/dns.ts";
 import { checkDomainsCommand } from "./migrate/check-domains.ts";
+import { dnsCommand } from "./migrate/dns.ts";
 
 /**
  * Main migrate command with subcommands
