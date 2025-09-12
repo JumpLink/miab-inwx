@@ -114,11 +114,11 @@ function buildUpdateParameters(miabRecord: DnsRecord): Record<string, unknown> {
 			break;
 		}
 		case "SRV": {
+			// INWX expects SRV updates as prio + combined content string "weight port target."
 			const { prio, weight, port, content } = parseSrvRecord(miabRecord.value);
+			const targetWithDot = /\.$/.test(content) ? content : `${content}.`;
 			updateParams.prio = prio;
-			updateParams.weight = weight;
-			updateParams.port = port;
-			updateParams.content = content;
+			updateParams.content = `${weight} ${port} ${targetWithDot}`;
 			break;
 		}
 		case "SSHFP": {

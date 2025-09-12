@@ -146,7 +146,8 @@ async function initializeApiClients(
 	inwxApiUrl: string,
 ): Promise<CommandResult<ApiClientConfig>> {
 	const miabAuth = `${miabConfig.email}:${miabConfig.password}`;
-	const inwxClient = new ApiClient(inwxApiUrl, Language.EN, inwxConfig.verbose);
+	// Reduce noise: disable domrobot internal verbose logging; rely on our own structured logs
+	const inwxClient = new ApiClient(inwxApiUrl, Language.EN, false);
 
 	// Test MIAB connection
 	const miabTest = await testMiabConnection(miabConfig.apiUrl, miabAuth, miabConfig.verbose);
@@ -1090,7 +1091,8 @@ async function createNewRecord(
 			console.error(
 				`${zoneProgress}   ❌ JSON parsing error for ${record.rtype} record ${record.qname}: ${errorMessage}`,
 			);
-			console.error(`${zoneProgress}   📝 Record params that caused the error:`, JSON.stringify(recordParams, null, 2));
+			// Condensed params output for readability
+			console.error(`${zoneProgress}   Params:`, JSON.stringify(recordParams));
 		}
 	}
 }
@@ -1120,10 +1122,8 @@ function validateSrvRecord(
 	}
 
 	if (context.verbose) {
-		console.log(`${zoneProgress}   🔍 Creating SRV record: ${record.qname}`);
-		console.log(`${zoneProgress}   📝 Original value: "${record.value}"`);
-		console.log(`${zoneProgress}   🔧 Parsed params:`, JSON.stringify(recordParams, null, 2));
-		console.log(`${zoneProgress}   ✅ Parameter validation passed`);
+		// Condensed SRV debug: show only one essential line
+		console.log(`${zoneProgress}   SRV params OK: ${record.qname} -> ${record.value}`);
 	}
 
 	return { isValid: true, error: "" };
@@ -1164,7 +1164,7 @@ async function createRecordWithRetry(
 		};
 
 		if (context.verbose) {
-			console.log(`${zoneProgress}   🔧 Using canonical SRV params:`, JSON.stringify(params, null, 2));
+			console.log(`${zoneProgress}   SRV canonical: name=${params.name} prio=${params.prio} content="${params.content}"`);
 		}
 
 		return await inwxClient.callApi("nameserver.createRecord", params);
