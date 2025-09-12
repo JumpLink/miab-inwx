@@ -118,14 +118,15 @@ export function compareSrvRecordContent(miabRecord: DnsRecord, inwxRecord: Exist
 
 	// Compare target/content
 	const normalizedMiabContent = normalizeRecordContent(miabSrv.content);
-	const normalizedInwxContent = normalizeRecordContent(inwxRecord.content);
 
-	if (normalizedMiabContent !== normalizedInwxContent) {
-		differences.push(`SRV Target: MIAB="${normalizedMiabContent}" vs INWX="${normalizedInwxContent}"`);
-	}
-
-	// Handle complex content comparison when INWX doesn't have separate fields
-	if (inwxRecord.weight === undefined && inwxRecord.port === undefined) {
+	if (inwxRecord.weight !== undefined || inwxRecord.port !== undefined) {
+		// INWX provides separate fields -> content is just target
+		const normalizedInwxContent = normalizeRecordContent(inwxRecord.content);
+		if (normalizedMiabContent !== normalizedInwxContent) {
+			differences.push(`SRV Target: MIAB="${normalizedMiabContent}" vs INWX="${normalizedInwxContent}"`);
+		}
+	} else {
+		// INWX encodes weight/port in content -> use robust comparison
 		const complexDifferences = compareSrvRecordComplexContent(miabSrv, inwxRecord, normalizedMiabContent);
 		differences.push(...complexDifferences);
 	}

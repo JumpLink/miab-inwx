@@ -1,6 +1,7 @@
 import { MiabClient } from "@miab-inwx/miab-client";
 import { ApiClient, Language } from "domrobot-client";
 import { minimatch } from "minimatch";
+import { request as httpsRequest } from "node:https";
 import type { CommandResult } from "../../types/index.ts";
 import type {
 	ApiClientConfig,
@@ -442,6 +443,9 @@ async function migrateZone(
 	await checkExistingRecordsForMigration(zone, inwxClient, context, zoneProgress, result);
 
 	await migrateZoneRecords(zone, inwxClient, context, zoneProgress, result);
+
+	// After DNS changes, check MTA-STS policy reachability if relevant
+	await checkMtaStsPolicyAvailability(zone, context, zoneProgress, result);
 
 	return result;
 }
@@ -1512,6 +1516,77 @@ function createMigrationResult(
  */
 function delay(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Fetch text via HTTPS with timeout
+ */
+async function fetchText(url: string, timeoutMs = 5000): Promise<{ status: number; body: string }> {
+	return await new Promise((resolve, reject) => {
+		const urlObj = new URL(url);
+		const req = httpsRequest(
+			{
+				hostname: urlObj.hostname,
+				path: urlObj.pathname + urlObj.search,
+				method: "GET",
+				headers: { Accept: "text/plain" },
+			},
+			(res) => {
+				let data = "";
+				res.setEncoding("utf8");
+				res.on("data", (chunk) => {
+					data += String(chunk);
+				});
+				res.on("end", () => {
+					resolve({ status: res.statusCode || 0, body: data });
+				});
+			},
+		);
+		const timer = setTimeout(() => {
+			req.destroy(new Error("Request timeout"));
+			reject(new Error("Request timeout"));
+		}, timeoutMs);
+		req.on("error", (err) => {
+			clearTimeout(timer);
+			reject(err);
+		});
+		req.on("close", () => {
+			clearTimeout(timer);
+		});
+		req.end();
+	});
+}
+
+/**
+ * Check if MTA-STS policy is published and reachable
+ */
+async function checkMtaStsPolicyAvailability(
+	zone: DnsZone,
+	context: MigrationContext,
+	zoneProgress: string,
+	result: MigrationResult,
+): Promise<void> {
+	try {
+		const domain = zone.domain;
+		const hasMtaStsTxt = zone.records.some(
+			(r) => r.rtype === "TXT" && r.qname.replace(/\.$/, "") === `_mta-sts.${domain}`,
+		);
+		if (!hasMtaStsTxt) return;
+
+		const policyUrl = `https://mta-sts.${domain}/.well-known/mta-sts.txt`;
+		const { status, body } = await fetchText(policyUrl, 5000);
+		const ok = status >= 200 && status < 400 && /version:\s*STSv1/i.test(body);
+		if (!ok) {
+			result.warnings.push(`MTA-STS policy not reachable/valid at ${policyUrl} (status ${status})`);
+			if (context.verbose) {
+				console.log(`${zoneProgress}   ⚠️  MTA-STS policy missing or invalid at ${policyUrl} (status ${status})`);
+			}
+		} else if (context.verbose) {
+			console.log(`${zoneProgress}   ✅ MTA-STS policy reachable at ${policyUrl}`);
+		}
+	} catch (err) {
+		result.warnings.push(`MTA-STS policy check failed: ${(err as Error).message}`);
+	}
 }
 
 // Logging functions
