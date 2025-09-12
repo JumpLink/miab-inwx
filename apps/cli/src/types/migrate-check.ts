@@ -34,6 +34,7 @@ export interface MigrateCheckData {
 		totalMiabDomains: number;
 		presentInInwx: number;
 		missingInInwx: number;
+		inwxOnly: number;
 		timestamp: string;
 		categories: {
 			jumplink: number;
@@ -44,6 +45,7 @@ export interface MigrateCheckData {
 		};
 	};
 	domains: DomainPresence[];
+	inwxOnly: DomainPresence[];
 }
 
 export type MigrateCheckResult = CommandResult<MigrateCheckData>;

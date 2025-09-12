@@ -84,6 +84,21 @@ export async function checkMiabDomainsPresence(options: MigrateCheckOptions): Pr
 
 		const presentInInwx = domainsPresence.filter((d) => d.existsInInwx).length;
 		const missingInInwx = domainsPresence.length - presentInInwx;
+		// INWX-only: domains in INWX (registered or zone) but not listed in MIAB
+		const inwxUniverse = new Set<string>([...registeredDomainsSet, ...inwxZones]);
+		const miabSet = new Set(filteredMiabDomains);
+		const inwxOnlyList: PresenceEntry[] = [];
+		for (const d of inwxUniverse) {
+			if (!miabSet.has(d)) {
+				const nameservers = await fetchNameservers(client, d);
+				inwxOnlyList.push({
+					domain: d,
+					existsInInwx: true,
+					nameservers,
+					nameserverCategory: categorizeNameservers(nameservers),
+				});
+			}
+		}
 		const categoriesCount = summarizeCategories(domainsPresence);
 
 		await cleanupInwxClient(client);
@@ -111,8 +126,10 @@ export async function checkMiabDomainsPresence(options: MigrateCheckOptions): Pr
 					missingInInwx,
 					timestamp: new Date().toISOString(),
 					categories: categoriesCount,
+					inwxOnly: inwxOnlyList.length,
 				},
 				domains: domainsPresence,
+				inwxOnly: inwxOnlyList.sort((a, b) => a.domain.localeCompare(b.domain)),
 			},
 		};
 	} catch (error) {

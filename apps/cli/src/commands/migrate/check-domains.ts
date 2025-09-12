@@ -77,6 +77,7 @@ export function checkDomainsCommand(yargs: Argv): void {
 					console.log(
 						`   Nameserver categories -> jumplink: ${c.jumplink}, box: ${c.box}, inwx: ${c.inwx}, other: ${c.other}, none: ${c.none}`,
 					);
+					console.log(`   INWX-only (not in MIAB): ${result.data.summary.inwxOnly}`);
 
 					const groups: Record<string, { title: string; items: typeof present }> = {
 						inwx: {
@@ -112,6 +113,15 @@ export function checkDomainsCommand(yargs: Argv): void {
 					if (missing.length > 0) {
 						console.log("\n❌ Missing in INWX (not registered):");
 						for (const d of missing.sort()) console.log(`   - ${d}`);
+					}
+
+					if (result.data.inwxOnly?.length) {
+						console.log("\nℹ️  Present in INWX but not in MIAB:");
+						for (const entry of result.data.inwxOnly) {
+							console.log(
+								`   - ${entry.domain}${entry.nameservers?.length ? ` [NS: ${entry.nameservers.join(", ")}]` : ""}`,
+							);
+						}
 					}
 				}
 			} catch (error) {
