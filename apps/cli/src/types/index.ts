@@ -13,6 +13,7 @@ export * from "./miab-status.ts";
 export * from "./miab-test.ts";
 // Export Migration-specific types
 export * from "./migrate-dns.ts";
+export * from "./migrate-check.ts";
 
 // Common CLI types
 export interface BaseCommandOptions {
