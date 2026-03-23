@@ -111,7 +111,7 @@ export function checkDomainsCommand(yargs: Argv): void {
 					}
 
 					if (missing.length > 0) {
-						console.log("\n❌ Missing in INWX (not registered):");
+						console.log("\n❌ No DNS zone found in INWX (domain may be registered elsewhere):");
 						for (const d of missing.sort()) console.log(`   - ${d}`);
 					}
 

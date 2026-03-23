@@ -844,9 +844,9 @@ async function checkDomainRegistration(
 
 			if (!isDomainRegistered) {
 				result.success = false;
-				result.warnings.push(`Domain ${domain} is not registered in your INWX account - cannot create DNS zone`);
+				result.warnings.push(`No DNS zone found for ${domain} in INWX - create the zone manually if the domain is registered elsewhere`);
 				if (context.verbose) {
-					console.log(`${zoneProgress}   ⚠️  Domain ${domain} is not registered in your INWX account`);
+					console.log(`${zoneProgress}   ⚠️  No DNS zone found for ${domain} in INWX (domain may be registered elsewhere)`);
 					console.log(`${zoneProgress}      Available domains: ${domainsResult.domains.length} total`);
 				}
 			} else if (context.verbose) {

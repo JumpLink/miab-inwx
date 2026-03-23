@@ -167,8 +167,8 @@ async function testZoneCreation(domain: string, environment: "ote" | "live", ver
 					console.log(`✅ Domain ${domain} is registered`);
 					console.log(`💡 You can create a DNS zone for this domain`);
 				} else {
-					console.log(`❌ Domain ${domain} is not registered in your INWX account`);
-					console.log(`💡 You need to register the domain before creating a DNS zone`);
+					console.log(`❌ No DNS zone found for ${domain} in INWX`);
+					console.log(`💡 Create the DNS zone manually in INWX - the domain does not need to be registered there`);
 				}
 			} else {
 				console.error(`❌ Failed to check domain registration: ${domainsResult.error || "Unknown error"}`);
