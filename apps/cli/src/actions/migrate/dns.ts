@@ -24,7 +24,7 @@ import {
 	RECORD_PROGRESS_THRESHOLD,
 } from "../../utils/constants.ts";
 import { findExistingInwxRecord, updateInwxRecord } from "../../utils/dns.ts";
-import { doesRecordContentMatch } from "../../utils/dns-helpers.ts";
+import { allowsMultipleRecords, doesRecordContentMatch, normalizeRecordName } from "../../utils/dns-helpers.ts";
 import { getAllDomains } from "../../utils/inwx-helpers.ts";
 import { cleanSshfpRecord, parseMxRecord, parseSrvRecord } from "../../utils/record-parsers.ts";
 
@@ -442,6 +442,10 @@ async function migrateZone(
 	// Check for existing records that might conflict with migration
 	await checkExistingRecordsForMigration(zone, inwxClient, context, zoneProgress, result);
 
+	// In overwrite mode, pre-delete INWX records that don't match any MIAB record
+	// for multi-record types (A, AAAA, MX, SRV, TXT, NS) so they get recreated correctly
+	await deleteNonMatchingMultiRecords(zone, inwxClient, context, zoneProgress, result);
+
 	await migrateZoneRecords(zone, inwxClient, context, zoneProgress, result);
 
 	// After DNS changes, check MTA-STS policy reachability if relevant
@@ -494,6 +498,74 @@ async function fetchExistingInwxRecords(inwxClient: ApiClient, domain: string): 
 	}
 
 	return recordsResponse.resData?.record || [];
+}
+
+/**
+ * Delete existing INWX records that don't match any MIAB record for multi-record types.
+ * This pre-migration step ensures that in overwrite mode, the full set of MIAB records
+ * replaces the existing INWX records rather than each MIAB record overwriting the same one.
+ */
+async function deleteNonMatchingMultiRecords(
+	zone: DnsZone,
+	inwxClient: ApiClient,
+	context: MigrationContext,
+	zoneProgress: string,
+	result: MigrationResult,
+): Promise<void> {
+	if (context.conflictResolution !== "overwrite" || context.dryRun) {
+		return;
+	}
+
+	try {
+		const existingRecords = await fetchExistingInwxRecords(inwxClient, zone.domain);
+		if (!existingRecords) {
+			return;
+		}
+
+		const miabRecordGroups = groupMiabRecordsByNameAndType(zone.records);
+
+		for (const [key, miabRecords] of miabRecordGroups) {
+			const [recordName, recordType] = key.split("|");
+
+			if (!allowsMultipleRecords(recordType)) continue;
+
+			const normalizedMiabName = normalizeRecordName(recordName);
+			const existingForNameType = existingRecords.filter(
+				(r: { name?: string; type?: string }) =>
+					normalizeRecordName(r.name || "") === normalizedMiabName && r.type === recordType,
+			) as Array<{ id?: string; name?: string; type?: string; content?: string }>;
+
+			if (existingForNameType.length === 0) continue;
+
+			for (const inwxRecord of existingForNameType) {
+				const hasMatch = miabRecords.some((miabRecord) =>
+					doesRecordContentMatch(miabRecord, { content: inwxRecord.content || "" }),
+				);
+
+				if (!hasMatch && inwxRecord.id) {
+					const del = await inwxClient.callApi("nameserver.deleteRecord", { id: inwxRecord.id });
+					if (del.code === INWX_SUCCESS_CODE) {
+						if (context.verbose) {
+							console.log(
+								`${zoneProgress}   🧹 Deleted non-matching ${recordType} record: ${recordName} -> ${inwxRecord.content}`,
+							);
+						}
+					} else {
+						result.errors.push(
+							`Failed to delete non-matching ${recordType} record for ${recordName}: ${del.msg}`,
+						);
+						result.failedRecords++;
+					}
+				}
+			}
+		}
+	} catch (error) {
+		if (context.verbose) {
+			console.log(
+				`${zoneProgress}   ⚠️  Could not pre-delete non-matching multi-records: ${error instanceof Error ? error.message : "Unknown error"}`,
+			);
+		}
+	}
 }
 
 /**
@@ -1026,7 +1098,7 @@ async function findAndValidateExistingRecord(
 	zoneProgress: string,
 ): Promise<ExistingInwxRecord | null | false> {
 	const existingRecordResult = await findExistingInwxRecord(inwxClient, domain, record, {
-		allowMulti: record.rtype === "TXT",
+		allowMulti: allowsMultipleRecords(record.rtype) && context.conflictResolution === "overwrite",
 	});
 	if (!existingRecordResult.success) {
 		result.failedRecords++;

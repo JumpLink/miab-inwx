@@ -81,8 +81,8 @@ export async function findExistingInwxRecord(
 			return { success: true, data: null };
 		}
 
-		// If type allows multiple values (e.g., TXT), only treat as existing when identical; else, if overwrite desired,
-		// caller will replace; default behavior here: return first candidate so caller can decide
+		// If type allows multiple values (e.g., A, AAAA, TXT), only treat as existing when identical;
+		// otherwise, return null so the caller can create a new record alongside the existing ones.
 		const allowMulti = options?.allowMulti ?? allowsMultipleRecords(miabRecord.rtype);
 
 		if (allowMulti) {
@@ -90,7 +90,7 @@ export async function findExistingInwxRecord(
 			return { success: true, data: null };
 		}
 
-		// For single-value types (A/AAAA/CNAME/MX/SRV/NS), treat any name+type match as existing so it can be updated
+		// For single-value types (e.g., CNAME), treat any name+type match as existing so it can be updated
 		return { success: true, data: createExistingInwxRecord(candidates[0]) };
 	} catch (error) {
 		return {
