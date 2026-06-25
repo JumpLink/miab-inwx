@@ -5,10 +5,10 @@
 	"main": "src/index.ts",
 	"type": "module",
 	"bin": {
-		"miab-cli": "node --experimental-specifier-resolution=node --experimental-strip-types --experimental-transform-types --no-warnings ./src/index.ts"
+		"miab-cli": "node --experimental-strip-types --experimental-transform-types --no-warnings ./src/index.ts"
 	},
 	"scripts": {
-		"start": "node --experimental-specifier-resolution=node --experimental-strip-types --experimental-transform-types --no-warnings ./src/index.ts",
+		"start": "node --experimental-strip-types --experimental-transform-types --no-warnings ./src/index.ts",
 		"check:types": "tsc"
 	},
 	"dependencies": {
