@@ -24,7 +24,12 @@ import {
 	RECORD_PROGRESS_THRESHOLD,
 } from "../../utils/constants.ts";
 import { findExistingInwxRecord, updateInwxRecord } from "../../utils/dns.ts";
-import { allowsMultipleRecords, doesRecordContentMatch, normalizeRecordName } from "../../utils/dns-helpers.ts";
+import {
+	allowsMultipleRecords,
+	doesMultiRecordMatch,
+	doesRecordContentMatch,
+	normalizeRecordName,
+} from "../../utils/dns-helpers.ts";
 import { getAllDomains } from "../../utils/inwx-helpers.ts";
 import { cleanSshfpRecord, parseMxRecord, parseSrvRecord } from "../../utils/record-parsers.ts";
 
@@ -529,17 +534,24 @@ async function deleteNonMatchingMultiRecords(
 
 			if (!allowsMultipleRecords(recordType)) continue;
 
+			// TXT records on a name are independent values (SPF, DKIM, DMARC and
+			// third-party verification tokens such as google-site-verification).
+			// Bulk-deleting them by name match destroys records MIAB does not manage;
+			// TXT replacement is handled semantically by prefix in the per-record path
+			// (deleteExistingTxtRecordsByPrefix), so skip TXT in this destructive pass.
+			if (recordType === "TXT") continue;
+
 			const normalizedMiabName = normalizeRecordName(recordName);
 			const existingForNameType = existingRecords.filter(
 				(r: { name?: string; type?: string }) =>
 					normalizeRecordName(r.name || "") === normalizedMiabName && r.type === recordType,
-			) as Array<{ id?: string; name?: string; type?: string; content?: string }>;
+			) as Array<{ id?: string; name?: string; type?: string; content?: string; prio?: number | string }>;
 
 			if (existingForNameType.length === 0) continue;
 
 			for (const inwxRecord of existingForNameType) {
 				const hasMatch = miabRecords.some((miabRecord) =>
-					doesRecordContentMatch(miabRecord, { content: inwxRecord.content || "" }),
+					doesMultiRecordMatch(miabRecord, { content: inwxRecord.content || "", prio: inwxRecord.prio }),
 				);
 
 				if (!hasMatch && inwxRecord.id) {
@@ -551,9 +563,7 @@ async function deleteNonMatchingMultiRecords(
 							);
 						}
 					} else {
-						result.errors.push(
-							`Failed to delete non-matching ${recordType} record for ${recordName}: ${del.msg}`,
-						);
+						result.errors.push(`Failed to delete non-matching ${recordType} record for ${recordName}: ${del.msg}`);
 						result.failedRecords++;
 					}
 				}
@@ -916,9 +926,13 @@ async function checkDomainRegistration(
 
 			if (!isDomainRegistered) {
 				result.success = false;
-				result.warnings.push(`No DNS zone found for ${domain} in INWX - create the zone manually if the domain is registered elsewhere`);
+				result.warnings.push(
+					`No DNS zone found for ${domain} in INWX - create the zone manually if the domain is registered elsewhere`,
+				);
 				if (context.verbose) {
-					console.log(`${zoneProgress}   ⚠️  No DNS zone found for ${domain} in INWX (domain may be registered elsewhere)`);
+					console.log(
+						`${zoneProgress}   ⚠️  No DNS zone found for ${domain} in INWX (domain may be registered elsewhere)`,
+					);
 					console.log(`${zoneProgress}      Available domains: ${domainsResult.domains.length} total`);
 				}
 			} else if (context.verbose) {

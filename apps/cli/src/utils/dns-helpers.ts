@@ -62,6 +62,32 @@ export function doesRecordContentMatch(miabRecord: DnsRecord, inwxRecord: { cont
 }
 
 /**
+ * Match an existing INWX record against a MIAB record for the overwrite pre-delete pass.
+ *
+ * INWX stores the MX/SRV priority in a dedicated `prio` field, while MIAB encodes it
+ * inline at the start of the record value (e.g. MIAB "10 mail.example." vs INWX
+ * content "mail.example." + prio 10). A plain content comparison therefore treats
+ * every MX/SRV as "non-matching" and needlessly deletes + recreates it on each run.
+ * Reconstructing the INWX value with its priority prepended fixes that — and keeps a
+ * genuinely stale priority (e.g. MIAB changed 10 → 20) correctly flagged for replacement.
+ */
+export function doesMultiRecordMatch(
+	miabRecord: DnsRecord,
+	inwxRecord: { content: string; prio?: number | string },
+): boolean {
+	if (
+		(miabRecord.rtype === "MX" || miabRecord.rtype === "SRV") &&
+		inwxRecord.prio !== undefined &&
+		String(inwxRecord.prio).length > 0
+	) {
+		return (
+			normalizeRecordContent(miabRecord.value) === normalizeRecordContent(`${inwxRecord.prio} ${inwxRecord.content}`)
+		);
+	}
+	return doesRecordContentMatch(miabRecord, inwxRecord);
+}
+
+/**
  * Create ExistingInwxRecord from API response record
  */
 export function createExistingInwxRecord(record: InwxApiRecord): ExistingInwxRecord {
