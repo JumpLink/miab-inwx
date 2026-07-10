@@ -1,7 +1,7 @@
 {
   "name": "@miab-inwx/root",
   "version": "1.0.0",
-  "description": "A root package for the MIAB and INWX API",
+  "description": "DEPRECATED — migrated into the leitstand workspace (@leitstand/{miab-client,inwx-client,dns}). Kept for reference; to be removed. A root package for the MIAB and INWX API.",
   "type": "module",
   "scripts": {
     "check": "yarn format && yarn check:types",

@@ -1,5 +1,14 @@
 # miab-inwx
 
+> ## ⚠️ DEPRECATED — migrated into `leitstand`
+>
+> These packages and the CLI have been **copied/migrated into the `leitstand` workspace**
+> (`projects/leitstand/packages/{miab-client,inwx-client,dns}`) as `@leitstand/miab-client`,
+> `@leitstand/inwx-client` and `@leitstand/dns` (the `migrate dns` / MIAB / INWX commands now run
+> as `leitstand dns …`). Leitstand is the single control plane going forward. **Use leitstand for
+> new work.** This repository is kept only as a reference and will be **removed at the next
+> opportunity**. See `projects/leitstand/docs/migration-miab-inwx.md`.
+
 A TypeScript monorepo for Mail-in-a-Box (MIAB) tools and potential DNS synchronization with INWX.
 
 ## Packages
